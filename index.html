@@ -54,6 +54,7 @@ button,input,select{font:inherit} button{cursor:pointer}
   <button data-page="customers">👥 Customers</button>
   <button data-page="accounts">▣ Subscription Accounts</button>
   <button data-page="reminders">◷ Reminders</button>
+  <button data-page="bulk">📣 Bulk Messages</button>
   <button data-page="payments">💳 Customer Payments</button>
   <button data-page="expenses">↘ Expenses</button>
   <button data-page="reports">▥ Reports</button>
@@ -95,7 +96,7 @@ button,input,select{font:inherit} button{cursor:pointer}
   <section id="settings" class="page"><div class="panel"><h3>Settings</h3><div class="list" style="margin-top:16px"><div class="notice"><div><strong>Google Spreadsheet</strong><small>Prepared as the central database for the published version.</small></div><button class="secondary" onclick="window.open('https://docs.google.com/spreadsheets/d/1Ff-k2Vvglf49hML7DFM2R7NUAkM5xImf0v9cC4fcusA/edit','_blank')">Open Sheet</button></div><div class="notice"><div><strong>Clear All Data</strong><small>Remove all customer, account, payment and expense records from this device.</small></div><button class="secondary" id="resetData">Reset</button></div></div></div></section>
  </div>
 
-<section class="page" id="page-bulk">
+<section class="page" id="bulk">
   <div class="page-head">
     <div>
       <h1>Bulk Messages</h1>
@@ -204,7 +205,7 @@ button,input,select{font:inherit} button{cursor:pointer}
 
 </main>
 </div>
-<nav class="bottom-nav"><button class="active" data-page="dashboard"><span>⌂</span>Home</button><button data-page="customers"><span>👥</span>Customers</button><button data-page="accounts"><span>▣</span>Accounts</button><button data-page="reminders"><span>◷</span>Reminders</button><button data-page="expenses"><span>↘</span>Expenses</button><button data-page="reports"><span>▥</span>Reports</button></nav>
+<nav class="bottom-nav"><button class="active" data-page="dashboard"><span>⌂</span>Home</button><button data-page="customers"><span>👥</span>Customers</button><button data-page="accounts"><span>▣</span>Accounts</button><button data-page="reminders"><span>◷</span>Reminders</button><button data-page="bulk"><span>📣</span>Bulk</button><button data-page="expenses"><span>↘</span>Expenses</button><button data-page="reports"><span>▥</span>Reports</button></nav>
 
 <div class="modal" id="customerModal"><div class="modal-card"><div class="modal-head"><h3 id="customerModalTitle">Add Customer</h3><button class="close" data-close>×</button></div><form id="customerForm"><input type="hidden" name="editId" id="customerEditId"><div class="form-grid">
 <div class="field"><label>Customer Name</label><input name="name" required></div><div class="field"><label>WhatsApp Number <span style="font-weight:500;color:#64748b">(Optional)</span></label><input name="phone" placeholder="592..."></div><div class="field"><label>Email</label><input name="email" type="email"></div><div class="field"><label>Existing Account Number</label><input name="referenceNumber"></div>
@@ -338,7 +339,7 @@ function ensureBillNumbers(){
 }
 
 function toast(msg){let t=document.getElementById("toast");t.textContent=msg;t.style.display="block";setTimeout(()=>t.style.display="none",2200)}
-function navigate(id){document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll("[data-page]").forEach(x=>x.classList.toggle("active",x.dataset.page===id));document.getElementById("pageTitle").textContent={dashboard:"Dashboard",customers:"Customers",accounts:"Subscription Accounts",reminders:"Reminders",payments:"Customer Payments",expenses:"Expenses",reports:"Reports",settings:"Settings"}[id];window.scrollTo(0,0)}
+function navigate(id){document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll("[data-page]").forEach(x=>x.classList.toggle("active",x.dataset.page===id));document.getElementById("pageTitle").textContent={dashboard:"Dashboard",customers:"Customers",accounts:"Subscription Accounts",reminders:"Reminders",bulk:"Bulk Messages",payments:"Customer Payments",expenses:"Expenses",reports:"Reports",settings:"Settings"}[id];window.scrollTo(0,0)}
 document.addEventListener("click",e=>{const p=e.target.closest("[data-page]");if(p)navigate(p.dataset.page);const o=e.target.closest("[data-open]");if(o){document.getElementById(o.dataset.open).classList.add("open");if(o.dataset.open==="customerModal")document.getElementById("customerBillNumber").value=generateBillNumber();}if(e.target.matches("[data-close]"))e.target.closest(".modal").classList.remove("open")});
 document.getElementById("quickAdd").onclick=()=>{document.getElementById("customerBillNumber").value=generateBillNumber();document.getElementById("customerModal").classList.add("open")};
 
@@ -452,11 +453,11 @@ function render(){refreshAutomaticStatuses();
  [due,"Payments Due Soon","Within three days","reminders","Due Soon"],
  [over,"Overdue / Expired","Needs follow-up","reminders","Overdue"],
  [slots,"Available Slots","Ready for new customers","accounts","Available"]
-].map(x=>`<div class="stat clickable-card" onclick="openSection('${x[3];renderBulkMessages()}','${x[4]}')"><span>${x[1]}</span><strong>${x[0]}</strong><small>${x[2]}</small></div>`).join("");
+].map(x=>`<div class="stat clickable-card" onclick="openSection('${x[3]}','${x[4]}')"><span>${x[1]}</span><strong>${x[0]}</strong><small>${x[2]}</small></div>`).join("");
  const attention=customers.filter(c=>c.status!=="Active").slice(0,8);
  document.getElementById("attentionRows").innerHTML=attention.map(c=>`<tr><td><div class="name">${c.name}</div><button class="icon-btn" style="margin-top:6px" onclick="editCustomer(${c.id})">Edit Customer</button><div class="muted">${c.phone||"Phone not added"}${c.email?` • ${c.email}`:""}${c.referenceNumber?` • Ref ${c.referenceNumber}`:""}</div></td><td>${c.service}</td><td>${c.due}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="icon-btn" onclick="whatsApp(customers.find(x=>x.id===${c.id}))">WhatsApp</button></td></tr>`).join("");
  document.getElementById("availabilityList").innerHTML=accounts.slice(0,5).map(a=>`<div class="notice clickable-card" onclick="openSection('accounts','${a.used>=a.slots?'Full':'Available'}')"><div><strong>${a.name}</strong><small>${a.used} of ${a.slots} slots used</small></div><span class="badge ${a.used>=a.slots?'full':'available'}">${a.slots-a.used} available</span></div>`).join("");
- renderCustomers(); renderAccounts(); renderReminders(); renderPayments(); renderExpenses(); renderReports(); fillSelects();
+ renderCustomers(); renderAccounts(); renderReminders(); renderPayments(); renderExpenses(); renderReports(); fillSelects(); renderBulkMessages();
 }
 function renderCustomers(){
  const q=(document.getElementById("customerSearch")?.value||"").toLowerCase(),st=document.getElementById("statusFilter")?.value||"",sv=document.getElementById("serviceFilter")?.value||"";

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'king-tech-manager-v6-cross-platform-whatsapp';
+const CACHE_NAME = 'king-tech-manager-v7-bulk-navigation-fix';
 const ASSETS = [
   './',
   './index.html',
