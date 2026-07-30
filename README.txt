@@ -1,0 +1,1 @@
+Open index.html in a modern browser. This test version stores data locally on the device.

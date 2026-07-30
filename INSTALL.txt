@@ -1,0 +1,19 @@
+KING TECH SUBSCRIPTION MANAGER — INSTALLABLE PWA
+
+This package is now configured as an installable Progressive Web App.
+
+IMPORTANT:
+Android will not install it directly from the ZIP or an HTML file.
+Upload the complete folder to an HTTPS website such as Cloudflare Pages.
+Then open the live link in Google Chrome and select:
+Menu (⋮) > Install app
+or
+Menu (⋮) > Add to Home screen
+
+Files required on the website:
+- index.html
+- manifest.json
+- service-worker.js
+- icon-192.png
+- icon-512.png
+- apple-touch-icon.png
