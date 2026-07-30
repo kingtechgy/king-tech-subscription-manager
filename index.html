@@ -74,7 +74,7 @@ button,input,select{font:inherit} button{cursor:pointer}
   </section>
   <section id="customers" class="page">
    <div class="panel"><div class="panel-head"><div><h3>Customers</h3><div class="muted">Edit names, services, due dates and assigned accounts.</div></div><button class="primary" data-open="customerModal">+ Add Customer</button></div>
-   <div class="filters"><input id="customerSearch" placeholder="Search customer, phone or service"><select id="statusFilter"><option value="">All statuses</option><option>Active</option><option>Due Soon</option><option>Due Today</option><option>Overdue</option><option>Expired</option><option>Did Not Renew</option></select><select id="serviceFilter"><option value="">All services</option></select></div>
+   <div class="filters"><input id="customerSearch" placeholder="Search customer, phone or service"><select id="statusFilter"><option value="">All statuses</option><option>Active</option><option>Due Soon</option><option>Due Today</option><option>Overdue</option><option>Expired</option><option>Did Not Renew</option><option>Available</option></select><select id="serviceFilter"><option value="">All services</option></select></div>
    <div class="table-wrap"><table class="table"><thead><tr><th>Bill No.</th><th>Customer</th><th>Service</th><th>Assigned Account</th><th>Amount</th><th>Payment Due</th><th>Internal Expiry</th><th>Status</th><th></th></tr></thead><tbody id="customerRows"></tbody></table></div></div>
   </section>
   <section id="accounts" class="page">
@@ -98,19 +98,19 @@ button,input,select{font:inherit} button{cursor:pointer}
 </div>
 <nav class="bottom-nav"><button class="active" data-page="dashboard"><span>⌂</span>Home</button><button data-page="customers"><span>👥</span>Customers</button><button data-page="accounts"><span>▣</span>Accounts</button><button data-page="reminders"><span>◷</span>Reminders</button><button data-page="expenses"><span>↘</span>Expenses</button><button data-page="reports"><span>▥</span>Reports</button></nav>
 
-<div class="modal" id="customerModal"><div class="modal-card"><div class="modal-head"><h3>Add Customer</h3><button class="close" data-close>×</button></div><form id="customerForm"><div class="form-grid">
+<div class="modal" id="customerModal"><div class="modal-card"><div class="modal-head"><h3 id="customerModalTitle">Add Customer</h3><button class="close" data-close>×</button></div><form id="customerForm"><input type="hidden" name="editId" id="customerEditId"><div class="form-grid">
 <div class="field"><label>Customer Name</label><input name="name" required></div><div class="field"><label>WhatsApp Number <span style="font-weight:500;color:#64748b">(Optional)</span></label><input name="phone" placeholder="592..."></div><div class="field"><label>Email</label><input name="email" type="email"></div><div class="field"><label>Existing Account Number</label><input name="referenceNumber"></div>
-<div class="field"><label>Bill Number</label><input name="billNumber" id="customerBillNumber" maxlength="4" inputmode="numeric" readonly required></div>
+<div class="field"><label>Bill Number</label><input name="billNumber" id="customerBillNumber" maxlength="4" inputmode="numeric" required></div>
 <div class="field"><label>Subscription Type</label><select name="service" id="customerService" required></select></div>
 <div class="field"><label>Package</label><select name="plan" id="customerPlan" required></select></div>
-<div class="field"><label>Monthly Amount</label><input name="amount" id="customerAmount" type="number" required readonly></div>
-<div class="field"><label>Sign-up Fee</label><input name="signupFee" id="customerSignupFee" type="number" value="0" readonly></div>
+<div class="field"><label>Monthly Amount</label><input name="amount" id="customerAmount" type="number" required></div>
+<div class="field"><label>Sign-up Fee</label><input name="signupFee" id="customerSignupFee" type="number" value="0"></div><div class="field"><label>Assigned Subscription Account</label><select name="account" id="customerAccount"><option value="">Not assigned</option></select></div>
 
-<div class="field"><label>Payment Due Date</label><input name="due" type="date" required></div><div class="field"><label>King Tech Account Expiry Date <span style="font-weight:500;color:#64748b">(Optional)</span></label><input name="expiry" type="date"></div>
-</div><div class="form-actions"><button type="button" class="secondary" data-close>Cancel</button><button class="primary">Save Customer</button></div></form></div></div>
-<div class="modal" id="accountModal"><div class="modal-card"><div class="modal-head"><h3>Add Subscription Account</h3><button class="close" data-close>×</button></div><form id="accountForm"><div class="form-grid">
-<div class="field"><label>Service</label><input name="service" required></div><div class="field"><label>Account Name</label><input name="name" required></div><div class="field"><label>Login Email / Username</label><input name="login" required></div><div class="field"><label>Password</label><input name="password" required></div><div class="field"><label>Total Slots</label><input name="slots" type="number" required></div><div class="field"><label>Used Slots</label><input name="used" type="number" value="0" required></div><div class="field"><label>King Tech Payment Date</label><input name="providerDue" type="date" required></div><div class="field"><label>Main Account Expiry</label><input name="providerExpiry" type="date"></div><div class="field"><label>Provider Cost</label><input name="cost" type="number" required></div>
-</div><div class="form-actions"><button type="button" class="secondary" data-close>Cancel</button><button class="primary">Save Account</button></div></form></div></div>
+<div class="field"><label>Status</label><select name="status"><option>Active</option><option>Due Soon</option><option>Overdue</option><option>Expired</option><option>Did Not Renew</option><option>Available</option></select></div><div class="field"><label>Payment Due Date</label><input name="due" type="date" required></div><div class="field"><label>King Tech Account Expiry Date <span style="font-weight:500;color:#64748b">(Optional)</span></label><input name="expiry" type="date"></div>
+</div><div class="form-actions"><button type="button" class="secondary" data-close>Cancel</button><button class="primary" id="customerSaveButton">Save Customer</button></div></form></div></div>
+<div class="modal" id="accountModal"><div class="modal-card"><div class="modal-head"><h3 id="accountModalTitle">Add Subscription Account</h3><button class="close" data-close>×</button></div><form id="accountForm"><input type="hidden" name="editId" id="accountEditId"><div class="form-grid">
+<div class="field"><label>Service</label><input name="service" required></div><div class="field"><label>Account Name</label><input name="name" required></div><div class="field"><label>Login Email / Username</label><input name="login" required></div><div class="field"><label>Password</label><input name="password" required></div><div class="field"><label>Total Slots</label><input name="slots" type="number" required></div><div class="field"><label>Used Slots</label><input name="used" type="number" value="0" required></div><div class="field"><label>King Tech Payment Date</label><input name="providerDue" type="date" required></div><div class="field"><label>Main Account Expiry</label><input name="providerExpiry" type="date"></div><div class="field"><label>Provider Cost</label><input name="cost" type="number" required></div><div class="field"><label>Account Status</label><select name="status"><option>Available</option><option>Full</option><option>Expired</option><option>Inactive</option></select></div>
+</div><div class="form-actions"><button type="button" class="secondary" data-close>Cancel</button><button class="primary" id="accountSaveButton">Save Account</button></div></form></div></div>
 <div class="modal" id="paymentModal"><div class="modal-card"><div class="modal-head"><h3>Record Customer Payment</h3><button class="close" data-close>×</button></div><form id="paymentForm"><div class="form-grid"><div class="field fullrow"><label>Customer</label><select name="customerId" id="paymentCustomer"></select></div><div class="field"><label>Amount Paid</label><input name="amount" type="number" required></div><div class="field"><label>New Payment Due Date</label><input name="newDue" type="date" required></div><div class="field"><label>New King Tech Account Expiry Date</label><input name="newExpiry" type="date" required></div></div><div class="form-actions"><button type="button" class="secondary" data-close>Cancel</button><button class="primary">Mark as Paid</button></div></form></div></div>
 <div class="modal" id="expenseModal"><div class="modal-card"><div class="modal-head"><h3>Add Business Expense</h3><button class="close" data-close>×</button></div><form id="expenseForm"><div class="form-grid"><div class="field"><label>Date</label><input name="date" type="date" required></div><div class="field"><label>Category</label><select name="category"><option>Gift Card Purchase</option><option>Provider Renewal</option><option>Software</option><option>Marketing</option><option>Other</option></select></div><div class="field fullrow"><label>Note / Description</label><input name="description" required placeholder="Example: Purchased $50 Apple gift card"></div><div class="field"><label>Amount</label><input name="amount" type="number" required></div></div><div class="form-actions"><button type="button" class="secondary" data-close>Cancel</button><button class="primary">Save Expense</button></div></form></div></div>
 <div class="toast" id="toast"></div>
@@ -180,6 +180,35 @@ function updateSubscriptionPrice(){
  amount.readOnly=!p.manual;
  if(p.manual){amount.placeholder="Enter website package price";amount.focus()}else{amount.placeholder=""}
 }
+
+function dateOnly(value){return value?new Date(value+'T00:00:00'):null}
+function daysFromToday(value){const d=dateOnly(value);if(!d)return null;const t=new Date();t.setHours(0,0,0,0);return Math.round((d-t)/86400000)}
+function calculatedCustomerStatus(c){
+  if(["Did Not Renew","Available"].includes(c.status)) return c.status;
+  const expiryDays=daysFromToday(c.expiry);
+  if(expiryDays!==null && expiryDays<0) return "Expired";
+  const dueDays=daysFromToday(c.due);
+  if(dueDays===null) return c.status||"Active";
+  if(dueDays<0) return "Overdue";
+  if(dueDays===0) return "Due Today";
+  if(dueDays<=3) return "Due Soon";
+  return "Active";
+}
+function calculatedAccountStatus(a){
+  const expiryDays=daysFromToday(a.providerExpiry);
+  if(expiryDays!==null && expiryDays<0) return "Expired";
+  if(a.status==="Inactive") return "Inactive";
+  return Number(a.used||0)>=Number(a.slots||0)?"Full":"Available";
+}
+function recalculateAccountUsage(){
+  accounts.forEach(a=>a.used=customers.filter(c=>c.account===a.name && !["Did Not Renew","Available","Expired"].includes(c.status)).length);
+}
+function refreshAutomaticStatuses(){
+  customers.forEach(c=>c.status=calculatedCustomerStatus(c));
+  recalculateAccountUsage();
+  accounts.forEach(a=>a.status=calculatedAccountStatus(a));
+}
+
 const save=()=>{localStorage.setItem("kt_customers",JSON.stringify(customers));localStorage.setItem("kt_accounts",JSON.stringify(accounts));localStorage.setItem("kt_expenses",JSON.stringify(expenses));localStorage.setItem("kt_payments",JSON.stringify(payments));render()};
 function generateBillNumber(){
  const used=new Set(customers.map(c=>String(c.billNumber||"")));
@@ -253,7 +282,7 @@ function whatsApp(c){
  setTimeout(()=>{if(!document.hidden){window.open(fallback,"_blank")}},1200);
 }
 function markPaid(id){const c=customers.find(x=>x.id===id);document.getElementById("paymentCustomer").value=id;document.querySelector("#paymentForm [name=amount]").value=c.amount;document.getElementById("paymentModal").classList.add("open")}
-function render(){
+function render(){refreshAutomaticStatuses();
  const active=customers.filter(c=>c.status==="Active").length,due=customers.filter(c=>["Due Soon","Due Today"].includes(c.status)).length,over=customers.filter(c=>["Overdue","Expired"].includes(c.status)).length,slots=accounts.reduce((s,a)=>s+(a.slots-a.used),0);
  document.getElementById("stats").innerHTML=[
  [active,"Active Customers","Currently subscribed","customers","Active"],
@@ -262,16 +291,16 @@ function render(){
  [slots,"Available Slots","Ready for new customers","accounts","Available"]
 ].map(x=>`<div class="stat clickable-card" onclick="openSection('${x[3]}','${x[4]}')"><span>${x[1]}</span><strong>${x[0]}</strong><small>${x[2]}</small></div>`).join("");
  const attention=customers.filter(c=>c.status!=="Active").slice(0,8);
- document.getElementById("attentionRows").innerHTML=attention.map(c=>`<tr><td><div class="name">${c.name}</div><div class="muted">${c.phone||"Phone not added"}${c.email?` • ${c.email}`:""}${c.referenceNumber?` • Ref ${c.referenceNumber}`:""}</div></td><td>${c.service}</td><td>${c.due}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="icon-btn" onclick="whatsApp(customers.find(x=>x.id===${c.id}))">WhatsApp</button></td></tr>`).join("");
+ document.getElementById("attentionRows").innerHTML=attention.map(c=>`<tr><td><div class="name">${c.name}</div><button class="icon-btn" style="margin-top:6px" onclick="editCustomer(${c.id})">Edit Customer</button><div class="muted">${c.phone||"Phone not added"}${c.email?` • ${c.email}`:""}${c.referenceNumber?` • Ref ${c.referenceNumber}`:""}</div></td><td>${c.service}</td><td>${c.due}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="icon-btn" onclick="whatsApp(customers.find(x=>x.id===${c.id}))">WhatsApp</button></td></tr>`).join("");
  document.getElementById("availabilityList").innerHTML=accounts.slice(0,5).map(a=>`<div class="notice clickable-card" onclick="openSection('accounts','${a.used>=a.slots?'Full':'Available'}')"><div><strong>${a.name}</strong><small>${a.used} of ${a.slots} slots used</small></div><span class="badge ${a.used>=a.slots?'full':'available'}">${a.slots-a.used} available</span></div>`).join("");
  renderCustomers(); renderAccounts(); renderReminders(); renderPayments(); renderExpenses(); renderReports(); fillSelects();
 }
 function renderCustomers(){
  const q=(document.getElementById("customerSearch")?.value||"").toLowerCase(),st=document.getElementById("statusFilter")?.value||"",sv=document.getElementById("serviceFilter")?.value||"";
  const rows=customers.filter(c=>(!q||[c.name,c.phone,c.email,c.referenceNumber,c.service].join(" ").toLowerCase().includes(q))&&(!st||c.status===st)&&(!sv||c.service===sv));
- document.getElementById("customerRows").innerHTML=rows.map(c=>`<tr><td><strong>#${c.billNumber}</strong></td><td><div class="name">${c.name}</div><div class="muted">${c.phone||"Phone not added"}${c.email?` • ${c.email}`:""}${c.referenceNumber?` • Ref ${c.referenceNumber}`:""}</div></td><td>${c.service}<div class="muted">${c.plan}${c.signupFee?` • Sign-up fee ${money(c.signupFee)}`:""}</div></td><td>${c.account||"—"}<div class="muted">${c.profile||""}</div></td><td>${money(c.amount)}</td><td>${c.due}</td><td>${c.expiry}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="icon-btn" onclick="markPaid(${c.id})">Paid</button> <button class="icon-btn" onclick="whatsApp(customers.find(x=>x.id===${c.id}))">Message</button></td></tr>`).join("")||`<tr><td colspan="9">No matching customers.</td></tr>`;
+ document.getElementById("customerRows").innerHTML=rows.map(c=>`<tr><td><strong>#${c.billNumber}</strong></td><td><div class="name">${c.name}</div><div class="muted">${c.phone||"Phone not added"}${c.email?` • ${c.email}`:""}${c.referenceNumber?` • Ref ${c.referenceNumber}`:""}</div></td><td>${c.service}<div class="muted">${c.plan}${c.signupFee?` • Sign-up fee ${money(c.signupFee)}`:""}</div></td><td>${c.account||"—"}<div class="muted">${c.profile||""}</div></td><td>${money(c.amount)}</td><td>${c.due}</td><td>${c.expiry}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="icon-btn" onclick="editCustomer(${c.id})">Edit</button> <button class="icon-btn" onclick="markPaid(${c.id})">Paid</button> <button class="icon-btn" onclick="whatsApp(customers.find(x=>x.id===${c.id}))">Message</button></td></tr>`).join("")||`<tr><td colspan="9">No matching customers.</td></tr>`;
 }
-function renderAccounts(){document.getElementById("accountCards").innerHTML=accounts.map(a=>`<div class="account-card"><div class="account-top"><div><div class="name">${a.name}</div><div class="muted">${a.service}</div></div><span class="badge ${a.used>=a.slots?'full':'available'}">${a.used>=a.slots?'Full':'Available'}</span></div><div class="progress"><div style="width:${a.used/a.slots*100}%"></div></div><div class="kv"><div><small>Available slots</small><strong>${a.slots-a.used}</strong></div><div><small>Provider cost</small><strong>${money(a.cost)}</strong></div><div><small>King Tech payment</small><strong>${a.providerDue}</strong></div><div><small>Account expiry</small><strong>${a.providerExpiry}</strong></div></div><div style="margin-top:14px"><div class="muted">Login</div><strong>${a.login}</strong><div class="muted" style="margin-top:7px">Password: •••••••••</div></div></div>`).join("")}
+function renderAccounts(){document.getElementById("accountCards").innerHTML=accounts.map(a=>`<div class="account-card"><div class="account-top"><div><div class="name">${a.name}</div><div class="muted">${a.service}</div></div><span class="badge ${slug(a.status)}">${a.status}</span></div><div class="progress"><div style="width:${Math.min(100,a.used/a.slots*100)}%"></div></div><div class="kv"><div><small>Available slots</small><strong>${Math.max(0,a.slots-a.used)}</strong></div><div><small>Used slots</small><strong>${a.used}</strong></div><div><small>Provider cost</small><strong>${money(a.cost)}</strong></div><div><small>King Tech payment</small><strong>${a.providerDue}</strong></div><div><small>Account expiry</small><strong>${a.providerExpiry||"Not set"}</strong></div></div><div style="margin-top:14px"><div class="muted">Login</div><strong>${a.login}</strong><div class="muted" style="margin-top:7px">Password: •••••••••</div></div><div style="margin-top:14px"><button class="icon-btn" onclick="editAccount(${a.id})">Edit Account</button></div></div>`).join("")}
 function renderReminders(){const f=document.getElementById("reminderFilter")?.value||"";const r=customers.filter(c=>c.status!=="Active"&&(!f||c.status===f));document.getElementById("reminderRows").innerHTML=r.map(c=>`<tr><td><div class="name">${c.name}</div><div class="muted">Bill #${c.billNumber} • ${c.phone}</div></td><td>${c.service}</td><td>${c.due}</td><td>${money(c.amount)}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="primary" onclick="whatsApp(customers.find(x=>x.id===${c.id}))">Open WhatsApp</button></td></tr>`).join("")}
 function renderPayments(){const dueTotal=customers.filter(c=>c.status!=="Active").reduce((s,c)=>s+c.amount,0),received=payments.reduce((s,p)=>s+p.amount,0);document.getElementById("paymentSummary").innerHTML=[
  [money(received),"Payments Recorded","Manual confirmations","payments",""],
@@ -286,11 +315,31 @@ function renderReports(){const income=customers.filter(c=>c.status!=="Did Not Re
  [money(profit),"Estimated Profit","Income minus expenses","reports"],
  [customers.length,"Customers","All records","customers"]
 ].map(x=>`<div class="stat clickable-card" onclick="openSection('${x[3]}')"><span>${x[1]}</span><strong>${x[0]}</strong><small>${x[2]}</small></div>`).join("");const services=[...new Set(customers.map(c=>c.service))];document.getElementById("profitByService").innerHTML=services.map(s=>{const v=customers.filter(c=>c.service===s&&c.status!=="Did Not Renew").reduce((a,c)=>a+c.amount,0);return `<div class="notice"><strong>${s}</strong><span>${money(v)}</span></div>`}).join("");document.getElementById("snapshot").innerHTML=`<div class="notice"><strong>Most customers</strong><span>Netflix</span></div><div class="notice"><strong>Available account slots</strong><span>${accounts.reduce((s,a)=>s+a.slots-a.used,0)}</span></div><div class="notice"><strong>Upcoming provider payments</strong><span>${accounts.length}</span></div>`}
-function fillSelects(){const services=[...new Set(customers.map(c=>c.service))];const sf=document.getElementById("serviceFilter");if(sf&&sf.options.length===1)services.forEach(s=>sf.add(new Option(s,s)));document.getElementById("customerAccount").innerHTML=accounts.map(a=>`<option>${a.name}</option>`).join("");document.getElementById("paymentCustomer").innerHTML=customers.map(c=>`<option value="${c.id}">${c.name} — ${c.service}</option>`).join("")}
+function fillSelects(){const services=[...new Set(customers.map(c=>c.service))];const sf=document.getElementById("serviceFilter");if(sf){const current=sf.value;sf.innerHTML='<option value="">All services</option>'+services.map(s=>`<option>${s}</option>`).join('');sf.value=current}const ca=document.getElementById("customerAccount");if(ca){const current=ca.value;ca.innerHTML='<option value="">Not assigned</option>'+accounts.filter(a=>a.status!=="Expired"&&a.status!=="Inactive").map(a=>`<option value="${a.name}">${a.name} — ${Math.max(0,a.slots-a.used)} available</option>`).join('');ca.value=current}const pc=document.getElementById("paymentCustomer");if(pc)pc.innerHTML=customers.map(c=>`<option value="${c.id}">${c.name} — ${c.service}</option>`).join("")}
 document.getElementById("customerService").onchange=updateSubscriptionPlans;document.getElementById("customerPlan").onchange=updateSubscriptionPrice;
 document.getElementById("customerSearch").oninput=renderCustomers;document.getElementById("statusFilter").onchange=renderCustomers;document.getElementById("serviceFilter").onchange=renderCustomers;document.getElementById("reminderFilter").onchange=renderReminders;
-document.getElementById("customerForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));customers.push({...f,id:Date.now(),billNumber:String(f.billNumber),amount:+f.amount,signupFee:+(f.signupFee||0),status:"Active",profile:f.name});e.target.reset();fillSubscriptionServices();e.target.closest(".modal").classList.remove("open");save();toast("Customer added")};
-document.getElementById("accountForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));accounts.push({...f,id:Date.now(),slots:+f.slots,used:+f.used,cost:+f.cost,status:+f.used>=+f.slots?"Full":"Available"});e.target.reset();e.target.closest(".modal").classList.remove("open");save();toast("Subscription account added")};
+function editCustomer(id){
+ const c=customers.find(x=>x.id===id);if(!c)return;
+ const form=document.getElementById("customerForm");
+ document.getElementById("customerModalTitle").textContent="Edit Customer";
+ document.getElementById("customerSaveButton").textContent="Save Changes";
+ form.editId.value=String(c.id);
+ ["name","phone","email","referenceNumber","billNumber","service","plan","amount","signupFee","account","status","due","expiry"].forEach(k=>{if(form.elements[k])form.elements[k].value=c[k]??""});
+ updateSubscriptionPlans();
+ form.plan.value=c.plan||"";
+ form.amount.value=c.amount||0;
+ document.getElementById("customerModal").classList.add("open");
+}
+function resetCustomerForm(){
+ const form=document.getElementById("customerForm");form.reset();form.editId.value="";
+ document.getElementById("customerModalTitle").textContent="Add Customer";
+ document.getElementById("customerSaveButton").textContent="Save Customer";
+ fillSubscriptionServices();
+}
+document.getElementById("customerForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const editId=Number(f.editId||0);delete f.editId;const clean={...f,billNumber:String(f.billNumber),amount:+f.amount,signupFee:+(f.signupFee||0),profile:f.name};if(["Did Not Renew","Available","Expired"].includes(clean.status))clean.account="";if(editId){const i=customers.findIndex(x=>x.id===editId);if(i>=0)customers[i]={...customers[i],...clean};toast("Customer information updated")}else{customers.push({...clean,id:Date.now(),status:f.status||"Active"});toast("Customer added")}refreshAutomaticStatuses();e.target.closest(".modal").classList.remove("open");resetCustomerForm();save()};
+function editAccount(id){const a=accounts.find(x=>x.id===id);if(!a)return;const form=document.getElementById("accountForm");document.getElementById("accountModalTitle").textContent="Edit Subscription Account";document.getElementById("accountSaveButton").textContent="Save Changes";form.editId.value=String(a.id);["service","name","login","password","slots","used","providerDue","providerExpiry","cost","status"].forEach(k=>{if(form.elements[k])form.elements[k].value=a[k]??""});document.getElementById("accountModal").classList.add("open")}
+function resetAccountForm(){const form=document.getElementById("accountForm");form.reset();form.editId.value="";document.getElementById("accountModalTitle").textContent="Add Subscription Account";document.getElementById("accountSaveButton").textContent="Save Account"}
+document.getElementById("accountForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const editId=Number(f.editId||0);delete f.editId;const clean={...f,slots:+f.slots,used:+f.used,cost:+f.cost};if(editId){const i=accounts.findIndex(x=>x.id===editId);if(i>=0){const oldName=accounts[i].name;accounts[i]={...accounts[i],...clean};if(oldName!==clean.name)customers.forEach(c=>{if(c.account===oldName)c.account=clean.name});toast("Subscription account updated")}}else{accounts.push({...clean,id:Date.now()});toast("Subscription account added")}refreshAutomaticStatuses();e.target.reset();e.target.closest(".modal").classList.remove("open");resetAccountForm();save()};
 document.getElementById("paymentForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const c=customers.find(x=>x.id==f.customerId);c.due=f.newDue;c.expiry=f.newExpiry;c.status="Active";payments.push({customerId:c.id,amount:+f.amount,date:new Date().toISOString().slice(0,10)});e.target.reset();e.target.closest(".modal").classList.remove("open");save();toast("Payment marked as received")};
 document.getElementById("expenseForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));expenses.unshift({...f,amount:+f.amount});e.target.reset();e.target.closest(".modal").classList.remove("open");save();toast("Expense added")};
 document.getElementById("resetData").onclick=()=>{
@@ -298,6 +347,7 @@ document.getElementById("resetData").onclick=()=>{
   customers=[]; accounts=[]; expenses=[]; payments=[];
   save(); render();
 };
+document.querySelectorAll("[data-modal=\"customerModal\"]").forEach(b=>b.addEventListener("click",resetCustomerForm));
 ensureBillNumbers();
 fillSubscriptionServices();
 render();

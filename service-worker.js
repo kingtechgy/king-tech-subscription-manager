@@ -1,4 +1,4 @@
-const CACHE_NAME = 'king-tech-manager-v1';
+const CACHE_NAME = 'king-tech-manager-v3-account-status';
 const ASSETS = [
   './',
   './index.html',
