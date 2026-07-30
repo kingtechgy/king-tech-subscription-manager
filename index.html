@@ -94,6 +94,114 @@ button,input,select{font:inherit} button{cursor:pointer}
   <section id="reports" class="page"><div class="stats" id="reportStats"></div><div class="grid2"><div class="panel"><h3>Profit by Service</h3><div id="profitByService" class="list" style="margin-top:15px"></div></div><div class="panel"><h3>Business Snapshot</h3><div id="snapshot" class="list" style="margin-top:15px"></div></div></div></section>
   <section id="settings" class="page"><div class="panel"><h3>Settings</h3><div class="list" style="margin-top:16px"><div class="notice"><div><strong>Google Spreadsheet</strong><small>Prepared as the central database for the published version.</small></div><button class="secondary" onclick="window.open('https://docs.google.com/spreadsheets/d/1Ff-k2Vvglf49hML7DFM2R7NUAkM5xImf0v9cC4fcusA/edit','_blank')">Open Sheet</button></div><div class="notice"><div><strong>Clear All Data</strong><small>Remove all customer, account, payment and expense records from this device.</small></div><button class="secondary" id="resetData">Reset</button></div></div></div></section>
  </div>
+
+<section class="page" id="page-bulk">
+  <div class="page-head">
+    <div>
+      <h1>Bulk Messages</h1>
+      <p>Prepare and send personalised WhatsApp reminders one customer at a time.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <h2>Build Reminder Queue</h2>
+        <p class="muted">Select customers by status or service, preview the message, then send through WhatsApp Business.</p>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <div class="field">
+        <label>Payment Status</label>
+        <select id="bulkStatusFilter">
+          <option value="">All payable customers</option>
+          <option>Due Soon</option>
+          <option>Due Today</option>
+          <option>Overdue</option>
+          <option>Expired</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Service</label>
+        <select id="bulkServiceFilter">
+          <option value="">All services</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Reminder Type</label>
+        <select id="bulkMessageType">
+          <option value="automatic">Automatic by status</option>
+          <option value="friendly">Friendly reminder</option>
+          <option value="today">Due today notice</option>
+          <option value="overdue">Overdue notice</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Duplicate Protection</label>
+        <select id="bulkDuplicateMode">
+          <option value="skip">Skip customers messaged today</option>
+          <option value="allow">Allow repeat message today</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="toolbar" style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="primary" onclick="selectBulkFiltered()">Select Filtered</button>
+      <button class="secondary" onclick="clearBulkSelection()">Clear Selection</button>
+      <button class="secondary" onclick="previewBulkMessage()">Preview Message</button>
+      <button class="primary" onclick="startBulkQueue()">Start Sending</button>
+    </div>
+
+    <div class="stats-grid" style="margin-top:18px">
+      <div class="stat"><span>Eligible</span><strong id="bulkEligibleCount">0</strong></div>
+      <div class="stat"><span>Selected</span><strong id="bulkSelectedCount">0</strong></div>
+      <div class="stat"><span>Sent Today</span><strong id="bulkSentTodayCount">0</strong></div>
+      <div class="stat"><span>Without Number</span><strong id="bulkMissingPhoneCount">0</strong></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <h2>Customer Selection</h2>
+        <p class="muted">Only customers with a WhatsApp number can be sent from the queue.</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="bulkSelectAll" onchange="toggleBulkSelectAll(this.checked)"></th>
+            <th>Customer</th>
+            <th>Service</th>
+            <th>Status</th>
+            <th>Amount</th>
+            <th>Last Reminder</th>
+          </tr>
+        </thead>
+        <tbody id="bulkCustomerRows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" id="bulkQueueCard" style="display:none">
+    <div class="card-head">
+      <div>
+        <h2>Sending Queue</h2>
+        <p class="muted" id="bulkQueueProgress">Queue not started.</p>
+      </div>
+    </div>
+    <div class="toolbar" style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="primary" id="bulkSendCurrentButton" onclick="sendCurrentBulkCustomer()">Open Current Message</button>
+      <button class="secondary" onclick="markBulkCurrentSent()">Mark Sent & Next</button>
+      <button class="secondary" onclick="skipBulkCurrent()">Skip</button>
+      <button class="danger" onclick="cancelBulkQueue()">Cancel Queue</button>
+    </div>
+    <div id="bulkCurrentCustomer" style="margin-top:16px"></div>
+  </div>
+</section>
+
 </main>
 </div>
 <nav class="bottom-nav"><button class="active" data-page="dashboard"><span>⌂</span>Home</button><button data-page="customers"><span>👥</span>Customers</button><button data-page="accounts"><span>▣</span>Accounts</button><button data-page="reminders"><span>◷</span>Reminders</button><button data-page="expenses"><span>↘</span>Expenses</button><button data-page="reports"><span>▥</span>Reports</button></nav>
@@ -209,7 +317,7 @@ function refreshAutomaticStatuses(){
   accounts.forEach(a=>a.status=calculatedAccountStatus(a));
 }
 
-const save=()=>{localStorage.setItem("kt_customers",JSON.stringify(customers));localStorage.setItem("kt_accounts",JSON.stringify(accounts));localStorage.setItem("kt_expenses",JSON.stringify(expenses));localStorage.setItem("kt_payments",JSON.stringify(payments));render()};
+const save=()=>{localStorage.setItem("kt_customers",JSON.stringify(customers));localStorage.setItem("kt_accounts",JSON.stringify(accounts));localStorage.setItem("kt_expenses",JSON.stringify(expenses));localStorage.setItem("kt_payments",JSON.stringify(payments));render();localStorage.setItem("kt_bulk_reminders",JSON.stringify(bulkReminderLog))};
 function generateBillNumber(){
  const used=new Set(customers.map(c=>String(c.billNumber||"")));
  let number;
@@ -268,18 +376,73 @@ function openSection(page, filter=""){
 }
 
 function whatsApp(c){
- const overdue=["Overdue","Expired","Did Not Renew"].includes(c.status);
- const msg=overdue
- ? `Hello ${c.name}, this is a reminder for Bill #${c.billNumber}. Your payment for your ${c.service} subscription was due on ${c.due}, but we have not yet received it. To continue your service, please complete your payment of ${money(c.amount)} and send us the payment receipt. If you have already paid, please send proof so we can update your account. Thank you for choosing King Tech.`
- : `Hello ${c.name}, this is a reminder for Bill #${c.billNumber}. Your payment of ${money(c.amount)} for your ${c.service} subscription is due on ${c.due}. Please make payment by the due date and send us proof of payment. Thank you for choosing King Tech.`;
+ let msg="";
+ if(["Overdue","Expired","Did Not Renew"].includes(c.status)){
+   msg=`👑 *KING TECH PAYMENT NOTICE*
 
- const encodedText=encodeURIComponent(msg);
- const phone=String(c.phone).replace(/\D/g,"");
- const businessIntent=`intent://send?phone=${phone}&text=${encodedText}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end`;
- const fallback=`https://wa.me/${phone}?text=${encodedText}`;
+Hello *${c.name}*,
 
- window.location.href=businessIntent;
- setTimeout(()=>{if(!document.hidden){window.open(fallback,"_blank")}},1200);
+Your subscription payment is currently *OVERDUE*.
+
+🧾 *Bill Number:* #${c.billNumber}
+📺 *Service:* ${c.service}
+💰 *Amount Due:* ${money(c.amount)}
+📅 *Due Date:* ${c.due}
+
+To avoid interruption or restore your service, please complete payment as soon as possible.
+
+💳 *MMG Pay Merchant*
+*Merchant Number:* 7107260
+*Merchant Name:* King Tech
+
+📸 After payment, kindly send:
+• A clear payment receipt
+• Your bill number: *#${c.billNumber}*
+
+If payment was already made, please send the receipt so we can update your account.
+
+Thank you for choosing *King Tech* 👑`;
+ }else if(c.status==="Due Today"){
+   msg=`👑 *KING TECH PAYMENT REMINDER*
+
+Hello *${c.name}*,
+
+Your subscription payment is due *TODAY*.
+
+🧾 *Bill Number:* #${c.billNumber}
+📺 *Service:* ${c.service}
+💰 *Amount Due:* ${money(c.amount)}
+📅 *Due Date:* ${c.due}
+
+💳 *MMG Pay Merchant*
+*Merchant Number:* 7107260
+*Merchant Name:* King Tech
+
+📸 Please send your payment receipt with bill number *#${c.billNumber}* after paying.
+
+Thank you for choosing *King Tech* 👑`;
+ }else{
+   msg=`👑 *KING TECH SUBSCRIPTION REMINDER*
+
+Hello *${c.name}*,
+
+This is a friendly reminder that your subscription payment is coming up.
+
+🧾 *Bill Number:* #${c.billNumber}
+📺 *Service:* ${c.service}
+💰 *Amount Due:* ${money(c.amount)}
+📅 *Payment Due:* ${c.due}
+
+💳 *MMG Pay Merchant*
+*Merchant Number:* 7107260
+*Merchant Name:* King Tech
+
+📸 Once payment is completed, please send a clear receipt and include bill number *#${c.billNumber}*.
+
+Thank you for choosing *King Tech* 👑`;
+ }
+
+ openWhatsAppMessage(c.phone,msg);
 }
 function markPaid(id){const c=customers.find(x=>x.id===id);document.getElementById("paymentCustomer").value=id;document.querySelector("#paymentForm [name=amount]").value=c.amount;document.getElementById("paymentModal").classList.add("open")}
 function render(){refreshAutomaticStatuses();
@@ -289,7 +452,7 @@ function render(){refreshAutomaticStatuses();
  [due,"Payments Due Soon","Within three days","reminders","Due Soon"],
  [over,"Overdue / Expired","Needs follow-up","reminders","Overdue"],
  [slots,"Available Slots","Ready for new customers","accounts","Available"]
-].map(x=>`<div class="stat clickable-card" onclick="openSection('${x[3]}','${x[4]}')"><span>${x[1]}</span><strong>${x[0]}</strong><small>${x[2]}</small></div>`).join("");
+].map(x=>`<div class="stat clickable-card" onclick="openSection('${x[3];renderBulkMessages()}','${x[4]}')"><span>${x[1]}</span><strong>${x[0]}</strong><small>${x[2]}</small></div>`).join("");
  const attention=customers.filter(c=>c.status!=="Active").slice(0,8);
  document.getElementById("attentionRows").innerHTML=attention.map(c=>`<tr><td><div class="name">${c.name}</div><button class="icon-btn" style="margin-top:6px" onclick="editCustomer(${c.id})">Edit Customer</button><div class="muted">${c.phone||"Phone not added"}${c.email?` • ${c.email}`:""}${c.referenceNumber?` • Ref ${c.referenceNumber}`:""}</div></td><td>${c.service}</td><td>${c.due}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="icon-btn" onclick="whatsApp(customers.find(x=>x.id===${c.id}))">WhatsApp</button></td></tr>`).join("");
  document.getElementById("availabilityList").innerHTML=accounts.slice(0,5).map(a=>`<div class="notice clickable-card" onclick="openSection('accounts','${a.used>=a.slots?'Full':'Available'}')"><div><strong>${a.name}</strong><small>${a.used} of ${a.slots} slots used</small></div><span class="badge ${a.used>=a.slots?'full':'available'}">${a.slots-a.used} available</span></div>`).join("");
@@ -351,6 +514,232 @@ document.querySelectorAll("[data-modal=\"customerModal\"]").forEach(b=>b.addEven
 ensureBillNumbers();
 fillSubscriptionServices();
 render();
+
+function todayKey(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function bulkEligibleCustomers(){
+  const status=document.getElementById("bulkStatusFilter")?.value||"";
+  const service=document.getElementById("bulkServiceFilter")?.value||"";
+  const duplicateMode=document.getElementById("bulkDuplicateMode")?.value||"skip";
+  const today=todayKey();
+  return customers.filter(c=>{
+    const payable=!["Did Not Renew","Available"].includes(c.status);
+    const matchesStatus=!status||c.status===status;
+    const matchesService=!service||c.service===service;
+    const duplicateOk=duplicateMode==="allow"||bulkReminderLog[c.id]!==today;
+    return payable&&matchesStatus&&matchesService&&duplicateOk;
+  });
+}
+function renderBulkMessages(){
+  const serviceSelect=document.getElementById("bulkServiceFilter");
+  if(!serviceSelect)return;
+  const current=serviceSelect.value;
+  const services=[...new Set(customers.map(c=>c.service).filter(Boolean))].sort();
+  serviceSelect.innerHTML='<option value="">All services</option>'+services.map(s=>`<option>${s}</option>`).join("");
+  serviceSelect.value=current;
+
+  const eligible=bulkEligibleCustomers();
+  const today=todayKey();
+  document.getElementById("bulkEligibleCount").textContent=eligible.length;
+  document.getElementById("bulkSelectedCount").textContent=bulkSelectedIds.length;
+  document.getElementById("bulkSentTodayCount").textContent=Object.values(bulkReminderLog).filter(v=>v===today).length;
+  document.getElementById("bulkMissingPhoneCount").textContent=eligible.filter(c=>!String(c.phone||"").replace(/\D/g,"")).length;
+
+  const rows=document.getElementById("bulkCustomerRows");
+  rows.innerHTML=eligible.map(c=>`
+    <tr>
+      <td><input type="checkbox" ${bulkSelectedIds.includes(c.id)?"checked":""} onchange="toggleBulkCustomer(${c.id},this.checked)"></td>
+      <td><strong>${c.name}</strong><div class="muted">${c.phone||"No WhatsApp number"} • Bill #${c.billNumber}</div></td>
+      <td>${c.service}</td>
+      <td><span class="badge ${slug(c.status)}">${c.status}</span></td>
+      <td>${money(c.amount)}</td>
+      <td>${bulkReminderLog[c.id]||"Never"}</td>
+    </tr>`).join("")||'<tr><td colspan="6" class="muted">No customers match the selected filters.</td></tr>';
+}
+function toggleBulkCustomer(id,checked){
+  if(checked&&!bulkSelectedIds.includes(id))bulkSelectedIds.push(id);
+  if(!checked)bulkSelectedIds=bulkSelectedIds.filter(x=>x!==id);
+  renderBulkMessages();
+}
+function toggleBulkSelectAll(checked){
+  const ids=bulkEligibleCustomers().map(c=>c.id);
+  bulkSelectedIds=checked?[...new Set([...bulkSelectedIds,...ids])]:bulkSelectedIds.filter(id=>!ids.includes(id));
+  renderBulkMessages();
+}
+function selectBulkFiltered(){
+  bulkSelectedIds=[...new Set(bulkEligibleCustomers().map(c=>c.id))];
+  renderBulkMessages();
+  toast(`${bulkSelectedIds.length} customers selected`);
+}
+function clearBulkSelection(){
+  bulkSelectedIds=[];
+  document.getElementById("bulkSelectAll").checked=false;
+  renderBulkMessages();
+}
+function buildBulkMessage(c,forcedType){
+  const type=forcedType==="automatic"?(["Overdue","Expired"].includes(c.status)?"overdue":c.status==="Due Today"?"today":"friendly"):forcedType;
+  if(type==="overdue")return `👑 *KING TECH PAYMENT NOTICE*
+
+Hello *${c.name}*,
+
+Your subscription payment is currently *OVERDUE*.
+
+🧾 *Bill Number:* #${c.billNumber}
+📺 *Service:* ${c.service}
+💰 *Amount Due:* ${money(c.amount)}
+📅 *Due Date:* ${c.due}
+
+To avoid interruption or restore your service, please complete payment as soon as possible.
+
+💳 *MMG Pay Merchant*
+*Merchant Number:* 7107260
+*Merchant Name:* King Tech
+
+📸 After payment, please send a clear receipt and bill number *#${c.billNumber}*.
+
+Thank you for choosing *King Tech* 👑`;
+  if(type==="today")return `👑 *KING TECH PAYMENT REMINDER*
+
+Hello *${c.name}*,
+
+Your subscription payment is due *TODAY*.
+
+🧾 *Bill Number:* #${c.billNumber}
+📺 *Service:* ${c.service}
+💰 *Amount Due:* ${money(c.amount)}
+📅 *Due Date:* ${c.due}
+
+💳 *MMG Pay Merchant*
+*Merchant Number:* 7107260
+*Merchant Name:* King Tech
+
+📸 Please send your payment receipt with bill number *#${c.billNumber}* after paying.
+
+Thank you for choosing *King Tech* 👑`;
+  return `👑 *KING TECH SUBSCRIPTION REMINDER*
+
+Hello *${c.name}*,
+
+This is a friendly reminder that your subscription payment is coming up.
+
+🧾 *Bill Number:* #${c.billNumber}
+📺 *Service:* ${c.service}
+💰 *Amount Due:* ${money(c.amount)}
+📅 *Payment Due:* ${c.due}
+
+💳 *MMG Pay Merchant*
+*Merchant Number:* 7107260
+*Merchant Name:* King Tech
+
+📸 Once payment is completed, please send a clear receipt and include bill number *#${c.billNumber}*.
+
+Thank you for choosing *King Tech* 👑`;
+}
+function previewBulkMessage(){
+  const c=customers.find(x=>bulkSelectedIds.includes(x.id))||bulkEligibleCustomers()[0];
+  if(!c){toast("Select at least one customer first");return}
+  const type=document.getElementById("bulkMessageType").value;
+  alert(buildBulkMessage(c,type));
+}
+function startBulkQueue(){
+  const selected=customers.filter(c=>bulkSelectedIds.includes(c.id));
+  const duplicateMode=document.getElementById("bulkDuplicateMode").value;
+  const today=todayKey();
+  bulkQueue=selected.filter(c=>{
+    const hasPhone=!!String(c.phone||"").replace(/\D/g,"");
+    const duplicateOk=duplicateMode==="allow"||bulkReminderLog[c.id]!==today;
+    return hasPhone&&duplicateOk;
+  });
+  bulkQueueIndex=0;
+  if(!bulkQueue.length){toast("No selected customers have a valid WhatsApp number");return}
+  document.getElementById("bulkQueueCard").style.display="block";
+  renderBulkCurrent();
+  document.getElementById("bulkQueueCard").scrollIntoView({behavior:"smooth"});
+}
+function renderBulkCurrent(){
+  if(!bulkQueue.length||bulkQueueIndex>=bulkQueue.length){
+    document.getElementById("bulkQueueProgress").textContent="Queue completed.";
+    document.getElementById("bulkCurrentCustomer").innerHTML='<div class="success-box">All queued reminders have been processed.</div>';
+    return;
+  }
+  const c=bulkQueue[bulkQueueIndex];
+  document.getElementById("bulkQueueProgress").textContent=`Customer ${bulkQueueIndex+1} of ${bulkQueue.length}`;
+  document.getElementById("bulkCurrentCustomer").innerHTML=`<div class="account-card"><div class="name">${c.name}</div><div class="muted">${c.phone} • ${c.service} • Bill #${c.billNumber}</div><div style="margin-top:10px"><span class="badge ${slug(c.status)}">${c.status}</span> <strong>${money(c.amount)}</strong></div></div>`;
+}
+function sendCurrentBulkCustomer(){
+  const c=bulkQueue[bulkQueueIndex];
+  if(!c)return;
+  const type=document.getElementById("bulkMessageType").value;
+  openWhatsAppMessage(c.phone,buildBulkMessage(c,type));
+}
+function markBulkCurrentSent(){
+  const c=bulkQueue[bulkQueueIndex];
+  if(!c)return;
+  bulkReminderLog[c.id]=todayKey();
+  bulkQueueIndex++;
+  save();
+  renderBulkMessages();
+  renderBulkCurrent();
+}
+function skipBulkCurrent(){
+  if(bulkQueueIndex<bulkQueue.length)bulkQueueIndex++;
+  renderBulkCurrent();
+}
+function cancelBulkQueue(){
+  bulkQueue=[];
+  bulkQueueIndex=0;
+  document.getElementById("bulkQueueCard").style.display="none";
+  toast("Bulk queue cancelled");
+}
+["bulkStatusFilter","bulkServiceFilter","bulkMessageType","bulkDuplicateMode"].forEach(id=>{
+  document.addEventListener("change",e=>{
+    if(e.target?.id===id){
+      if(id==="bulkStatusFilter"||id==="bulkServiceFilter"||id==="bulkDuplicateMode"){
+        bulkSelectedIds=[];
+        renderBulkMessages();
+      }
+    }
+  });
+});
+
+
+function openWhatsAppMessage(phone,message){
+  const cleanPhone=String(phone||"").replace(/\D/g,"");
+  if(!cleanPhone){
+    toast("Add the customer's WhatsApp number first");
+    return;
+  }
+
+  const encodedText=encodeURIComponent(message);
+  const ua=navigator.userAgent||navigator.vendor||window.opera||"";
+  const isAndroid=/android/i.test(ua);
+  const isIOS=/iPad|iPhone|iPod/.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+
+  const universalLink=`https://wa.me/${cleanPhone}?text=${encodedText}`;
+  const appLink=`whatsapp://send?phone=${cleanPhone}&text=${encodedText}`;
+  const androidBusinessIntent=`intent://send?phone=${cleanPhone}&text=${encodedText}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end`;
+
+  if(isAndroid){
+    window.location.href=androidBusinessIntent;
+    setTimeout(()=>{
+      if(!document.hidden) window.location.href=universalLink;
+    },1200);
+    return;
+  }
+
+  if(isIOS){
+    window.location.href=appLink;
+    setTimeout(()=>{
+      if(!document.hidden) window.location.href=universalLink;
+    },1000);
+    return;
+  }
+
+  window.open(universalLink,"_blank","noopener,noreferrer");
+}
+
 </script>
 
 <script>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'king-tech-manager-v3-account-status';
+const CACHE_NAME = 'king-tech-manager-v6-cross-platform-whatsapp';
 const ASSETS = [
   './',
   './index.html',
