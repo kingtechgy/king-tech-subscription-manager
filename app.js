@@ -161,6 +161,7 @@ function toast(msg){let t=document.getElementById("toast");t.textContent=msg;t.s
 function navigate(id){document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll("[data-page]").forEach(x=>x.classList.toggle("active",x.dataset.page===id));document.getElementById("pageTitle").textContent={dashboard:"Dashboard",customers:"Customers",accounts:"Subscription Accounts",reminders:"Reminders",bulk:"Bulk Messages",payments:"Customer Payments",expenses:"Expenses",reports:"Reports",settings:"Settings"}[id];window.scrollTo(0,0)}
 document.addEventListener("click",e=>{const p=e.target.closest("[data-page]");if(p)navigate(p.dataset.page);const o=e.target.closest("[data-open]");if(o){document.getElementById(o.dataset.open).classList.add("open");if(o.dataset.open==="customerModal")document.getElementById("customerBillNumber").value=generateBillNumber();}if(e.target.matches("[data-close]"))e.target.closest(".modal").classList.remove("open")});
 document.getElementById("quickAdd").onclick=()=>{document.getElementById("customerBillNumber").value=generateBillNumber();document.getElementById("customerModal").classList.add("open")};
+document.getElementById("settingsButton").onclick=()=>navigate("settings");
 
 function openSection(page, filter=""){
  navigate(page);
