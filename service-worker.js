@@ -1,10 +1,11 @@
-const CACHE_NAME = 'king-tech-manager-v2.7.2-synced-dates';
+const CACHE_NAME = 'king-tech-manager-v3-firebase';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icon.svg',
-  './app.js'
+  './app.js',
+  './firebase-sync.js'
 ];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)));

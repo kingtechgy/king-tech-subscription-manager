@@ -135,8 +135,9 @@ function saveLocalOnly(){
 const save=()=>{
   refreshAutomaticStatuses(); saveLocalOnly(); render();
   clearTimeout(syncSaveTimer);
-  if(sharedReady()){
-    syncSaveTimer=setTimeout(()=>pushSharedData().catch(()=>{}),700);
+  if(window.kingTechFirebase?.ready){
+    updateSyncUI("Saving securely to Firebase…");
+    syncSaveTimer=setTimeout(()=>window.kingTechFirebase.save(syncPayload()).catch(()=>updateSyncUI("Firebase save failed — local copy kept")),500);
   }
 };
 function generateBillNumber(){
@@ -333,12 +334,8 @@ function resetAccountForm(){const form=document.getElementById("accountForm");fo
 document.getElementById("accountForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const editId=Number(f.editId||0);delete f.editId;const clean={...f,slots:+f.slots,manualUsed:+f.used,used:+f.used,cost:+f.cost,manualStatus:f.status};if(editId){const i=accounts.findIndex(x=>x.id===editId);if(i>=0){const oldName=accounts[i].name;accounts[i]={...accounts[i],...clean};if(oldName!==clean.name)customers.forEach(c=>{if(c.account===oldName)c.account=clean.name});toast("Subscription account updated")}}else{accounts.push({...clean,id:Date.now()});toast("Subscription account added")}refreshAutomaticStatuses();e.target.reset();e.target.closest(".modal").classList.remove("open");resetAccountForm();save()};
 document.getElementById("paymentForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const c=customers.find(x=>x.id==f.customerId);c.due=f.newDue;c.expiry=f.newExpiry;c.status="Active";payments.push({id:Date.now(),customerId:c.id,billNumber:c.billNumber,customerName:c.name,service:c.service,amount:+f.amount,date:new Date().toISOString().slice(0,10),newDue:f.newDue,newExpiry:f.newExpiry,agent:getAgentName(),createdAt:new Date().toISOString()});e.target.reset();e.target.closest(".modal").classList.remove("open");save();toast("Payment marked as received")};
 document.getElementById("expenseForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));expenses.unshift({...f,id:Date.now(),amount:+f.amount,agent:getAgentName(),createdAt:new Date().toISOString()});e.target.reset();e.target.closest(".modal").classList.remove("open");save();toast("Expense added")};
-document.getElementById("resetData").onclick=()=>{
-  if(!confirm("Clear the local copy on this device only? The shared spreadsheet will not be deleted.")) return;
-  setSyncMode("local");
-  customers=[]; accounts=[]; expenses=[]; payments=[];
-  saveLocalOnly(); render(); updateSyncUI("Local copy cleared — shared database was not changed");
-};
+const resetDataButton=document.getElementById("resetData");
+if(resetDataButton)resetDataButton.onclick=()=>toast("Device reset is disabled while Firebase sync is active");
 document.querySelectorAll("[data-modal=\"customerModal\"]").forEach(b=>b.addEventListener("click",resetCustomerForm));
 ensureBillNumbers();
 fillSubscriptionServices();
@@ -348,6 +345,13 @@ render();
 
 function getAgentName(){return localStorage.getItem("kt_agent_name")||"King Tech Agent"}
 function saveAgentName(){const v=document.getElementById("agentNameInput").value.trim();if(v){localStorage.setItem("kt_agent_name",v);toast("Agent name saved")}updateSyncUI()}
+window.getKingTechSnapshot=syncPayload;
+window.applyFirebaseSnapshot=data=>{
+  if(!data||!Array.isArray(data.customers))return;
+  customers=data.customers;accounts=data.accounts||[];payments=data.payments||[];expenses=data.expenses||[];
+  bulkReminderLog=data.reminderLog||{};
+  refreshAutomaticStatuses();saveLocalOnly();render();updateSyncUI(`Live — ${customers.length} customers synced`);
+};
 function getSyncUrl(){return (localStorage.getItem("kt_sync_url")||DEFAULT_SYNC_URL||"").trim()}
 function deviceId(){let id=localStorage.getItem("kt_device_id");if(!id){id="device-"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);localStorage.setItem("kt_device_id",id)}return id}
 function syncMode(){return localStorage.getItem("kt_sync_mode")||(localStorage.getItem("kt_migration_complete")==="yes"?"migrated":"local")}
@@ -360,6 +364,13 @@ function syncPayload(){
 }
 function hashData(data){try{return JSON.stringify(data).length+":"+(data.updatedAt||"")}catch{return String(Date.now())}}
 function updateSyncUI(message){
+  if(window.kingTechFirebase){
+    const badge=document.getElementById("syncStatusBadge"),text=document.getElementById("syncStatusText"),agent=document.getElementById("agentNameInput");
+    if(agent&&!agent.value)agent.value=getAgentName();
+    if(badge){badge.textContent=window.kingTechFirebase.ready?"Live":"Offline";badge.className="badge "+(window.kingTechFirebase.ready?"active":"due-soon")}
+    if(text)text.textContent=message||(window.kingTechFirebase.ready?"Live Firebase sync is active":"Waiting for Firebase sign-in…");
+    return;
+  }
   const url=getSyncUrl(), mode=syncMode();
   const badge=document.getElementById("syncStatusBadge"), text=document.getElementById("syncStatusText");
   const input=document.getElementById("syncUrlInput"), agent=document.getElementById("agentNameInput");
@@ -502,15 +513,14 @@ async function importBackup(){
   const file=document.getElementById("backupFile").files[0];if(!file){toast("Choose a backup file");return}
   try{const raw=JSON.parse(await file.text());const d=raw.data||raw;
     if(!Array.isArray(d.customers)||!Array.isArray(d.accounts))throw new Error("Invalid backup");
-    if(!confirm(`Import ${d.customers.length} customers and ${d.accounts.length} accounts?`))return;
+    if(!window.kingTechFirebase?.ready){toast("Sign in to Firebase first");return}
+    if(!confirm(`Upload ${d.customers.length} customers, ${d.payments?.length||0} payments and ${d.accounts.length} accounts to Firebase?`))return;
     customers=d.customers;accounts=d.accounts;payments=d.payments||[];expenses=d.expenses||[];
-    if(d.reminderLog)bulkReminderLog=d.reminderLog;refreshAutomaticStatuses();save();toast("Backup imported")
+    if(d.reminderLog)bulkReminderLog=d.reminderLog;refreshAutomaticStatuses();saveLocalOnly();render();await window.kingTechFirebase.replace(syncPayload());toast("Backup uploaded to Firebase")
   }catch(e){toast("Backup file could not be imported")}
 }
-window.addEventListener("online",()=>{updateSyncUI("Internet restored");if(sharedReady())pushSharedData()});
-window.addEventListener("offline",()=>updateSyncUI("Offline — changes are saved on this device"));
-setInterval(()=>{if(getSyncUrl()&&navigator.onLine&&sharedReady())pullSharedData(false)},SYNC_INTERVAL);
-setTimeout(()=>{updateSyncUI();if(getSyncUrl()&&navigator.onLine&&sharedReady())pullSharedData(false)},800);
+window.addEventListener("online",()=>updateSyncUI("Internet restored — Firebase reconnecting…"));
+window.addEventListener("offline",()=>updateSyncUI("Offline — changes remain saved on this device"));
 
 function todayKey(){
   const d=new Date();
