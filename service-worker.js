@@ -1,4 +1,4 @@
-const CACHE_NAME = 'king-tech-manager-v7-bulk-navigation-fix';
+const CACHE_NAME = 'king-tech-manager-v2-live-sync-connected';
 const ASSETS = [
   './',
   './index.html',

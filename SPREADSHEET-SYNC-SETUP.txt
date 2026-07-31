@@ -1,0 +1,13 @@
+KING TECH SHARED SYNC — ONE-TIME SETUP
+
+1. Open the LIVE spreadsheet:
+https://docs.google.com/spreadsheets/d/1-SFws64HGIkEvK3vZCmNekilftCtpy4WdE6AKSDdKWU/edit
+
+2. Click Extensions > Apps Script.
+3. Delete the sample code and paste the full contents of Code.gs.
+4. Click Deploy > New deployment > Web app.
+5. Execute as: Me. Who has access: Anyone.
+6. Authorize, deploy, and copy the Web App URL ending in /exec.
+7. In the Subscription Manager, open Settings, paste the URL, enter the agent name, and click Connect & Migrate.
+
+IMPORTANT: Do not clear browser/app data before Connect & Migrate confirms success. The app automatically keeps a local safety backup and also provides Export Backup.
