@@ -10,3 +10,5 @@ KING TECH SUBSCRIPTION MANAGER — CORE FIXES 2.7
 - Prevented assignment to full, inactive, expired, or wrong-service accounts.
 - Clear This Device Only now disconnects first and cannot upload an empty database.
 - Updated the app cache so installed devices receive this corrected build.
+- Fixed the mobile KT button so it opens Shared Sync & Backups settings.
+- Fixed synced spreadsheet dates so Due Soon, Due Today, Overdue, and Expired statuses calculate correctly on every device.

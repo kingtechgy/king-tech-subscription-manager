@@ -22,6 +22,8 @@ let customers = JSON.parse(localStorage.getItem("kt_customers")||"null") || stru
 let accounts = JSON.parse(localStorage.getItem("kt_accounts")||"null") || structuredClone(initialAccounts);
 let expenses = JSON.parse(localStorage.getItem("kt_expenses")||"null") || structuredClone(initialExpenses);
 let payments = JSON.parse(localStorage.getItem("kt_payments")||"[]");
+let deletedAccounts = JSON.parse(localStorage.getItem("kt_deleted_accounts")||"[]");
+let providerPayments = JSON.parse(localStorage.getItem("kt_provider_payments")||"[]");
 let bulkReminderLog = JSON.parse(localStorage.getItem("kt_bulk_reminders")||"{}");
 let bulkSelectedIds = [];
 let bulkQueue = [];
@@ -130,6 +132,8 @@ function saveLocalOnly(){
   localStorage.setItem("kt_accounts",JSON.stringify(accounts));
   localStorage.setItem("kt_expenses",JSON.stringify(expenses));
   localStorage.setItem("kt_payments",JSON.stringify(payments));
+  localStorage.setItem("kt_deleted_accounts",JSON.stringify(deletedAccounts));
+  localStorage.setItem("kt_provider_payments",JSON.stringify(providerPayments));
   localStorage.setItem("kt_bulk_reminders",JSON.stringify(bulkReminderLog));
 }
 const save=()=>{
@@ -160,8 +164,8 @@ function ensureBillNumbers(){
 }
 
 function toast(msg){let t=document.getElementById("toast");t.textContent=msg;t.style.display="block";setTimeout(()=>t.style.display="none",2200)}
-function navigate(id){document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll("[data-page]").forEach(x=>x.classList.toggle("active",x.dataset.page===id));document.getElementById("pageTitle").textContent={dashboard:"Dashboard",customers:"Customers",accounts:"Subscription Accounts",reminders:"Reminders",bulk:"Bulk Messages",payments:"Customer Payments",expenses:"Expenses",reports:"Reports",settings:"Settings"}[id];window.scrollTo(0,0)}
-document.addEventListener("click",e=>{const p=e.target.closest("[data-page]");if(p)navigate(p.dataset.page);const o=e.target.closest("[data-open]");if(o){document.getElementById(o.dataset.open).classList.add("open");if(o.dataset.open==="customerModal")document.getElementById("customerBillNumber").value=generateBillNumber();}if(e.target.matches("[data-close]"))e.target.closest(".modal").classList.remove("open")});
+function navigate(id){document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll("[data-page]").forEach(x=>x.classList.toggle("active",x.dataset.page===id));const title=document.getElementById("pageTitle");if(title)title.textContent={dashboard:"Dashboard",customers:"Customers",accounts:"Subscription Accounts",reminders:"Reminders",bulk:"Bulk Messages",payments:"Customer Payments",expenses:"Expenses",reports:"Reports",settings:"Settings"}[id]||"King Tech";window.scrollTo(0,0)}
+document.addEventListener("click",e=>{const p=e.target.closest?.("[data-page]");if(p){e.preventDefault();navigate(p.dataset.page)}const o=e.target.closest?.("[data-open]");if(o){e.preventDefault();const modal=document.getElementById(o.dataset.open);if(modal)modal.classList.add("open");if(o.dataset.open==="customerModal"){const bill=document.getElementById("customerBillNumber");if(bill)bill.value=generateBillNumber()}}const closer=e.target.closest?.("[data-close]");if(closer){e.preventDefault();closer.closest(".modal")?.classList.remove("open")}});
 document.getElementById("quickAdd").onclick=()=>{document.getElementById("customerBillNumber").value=generateBillNumber();document.getElementById("customerModal").classList.add("open")};
 document.getElementById("settingsButton").onclick=()=>navigate("settings");
 
@@ -267,7 +271,7 @@ Thank you for choosing *King Tech* 👑`;
 
  openWhatsAppMessage(c.phone,msg);
 }
-function markPaid(id){const c=customers.find(x=>x.id===id);document.getElementById("paymentCustomer").value=id;document.querySelector("#paymentForm [name=amount]").value=c.amount;document.getElementById("paymentModal").classList.add("open")}
+function markPaid(id){const c=customers.find(x=>String(x.id)===String(id));if(!c)return;document.getElementById("paymentCustomer").value=String(c.id);document.querySelector("#paymentForm [name=amount]").value=c.amount;document.getElementById("paymentModal").classList.add("open")}
 const PAYABLE_CUSTOMER_STATUSES=new Set(["Due Soon","Due Today","Overdue","Expired"]);
 let financialPeriod=localStorage.getItem("kt_financial_period")||"month";
 function dateWithinFinancialPeriod(value,period=financialPeriod){const d=dateOnly(dateInputValue(value));if(!d)return false;if(period==="all")return true;const today=new Date();today.setHours(0,0,0,0);if(period==="month")return d.getFullYear()===today.getFullYear()&&d.getMonth()===today.getMonth();const start=new Date(today),mondayOffset=(today.getDay()+6)%7;start.setDate(today.getDate()-mondayOffset);const end=new Date(start);end.setDate(start.getDate()+7);return d>=start&&d<end}
@@ -279,6 +283,7 @@ function isPayableCustomer(c){return PAYABLE_CUSTOMER_STATUSES.has(c.status)}
 function billableCustomers(){return customers.filter(c=>!["Did Not Renew","Available","Expired"].includes(c.status))}
 function availableInventoryCount(){return customers.filter(c=>c.status==="Available").length+accounts.filter(a=>!["Expired","Inactive"].includes(a.status)).reduce((sum,a)=>sum+availableSlots(a),0)}
 function paymentService(payment){return payment.service||customers.find(c=>String(c.id)===String(payment.customerId))?.service||"Unassigned"}
+function customerById(id){return customers.find(c=>String(c.id)===String(id))}
 function removePayment(id){if(!confirm("Remove this payment record? The customer's current due date will not be changed."))return;payments=payments.filter(p=>String(p.id)!==String(id));save();toast("Payment record removed")}
 function removeExpense(id){if(!confirm("Remove this expense record?"))return;expenses=expenses.filter(x=>String(x.id)!==String(id));save();toast("Expense removed")}
 function render(){refreshAutomaticStatuses();
@@ -290,7 +295,7 @@ function render(){refreshAutomaticStatuses();
  [slots,"Available Slots","Ready for new customers","accounts","Available"]
 ].map(x=>`<div class="stat clickable-card" onclick="openSection('${x[3]}','${x[4]}')"><span>${x[1]}</span><strong>${x[0]}</strong><small>${x[2]}</small></div>`).join("");
  const attention=customers.filter(isPayableCustomer).sort((a,b)=>String(a.due||"").localeCompare(String(b.due||""))).slice(0,8);
- document.getElementById("attentionRows").innerHTML=attention.map(c=>`<tr><td><div class="name">${c.name}</div><button class="icon-btn" style="margin-top:6px" onclick="editCustomer(${c.id})">Edit Customer</button><div class="muted">${c.phone||"Phone not added"}${c.email?` • ${c.email}`:""}${c.referenceNumber?` • Ref ${c.referenceNumber}`:""}</div></td><td>${c.service}</td><td>${c.due}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="icon-btn" onclick="whatsApp(customers.find(x=>x.id===${c.id}))">WhatsApp</button></td></tr>`).join("");
+ document.getElementById("attentionRows").innerHTML=attention.map(c=>{const cid=JSON.stringify(String(c.id));return `<tr><td><div class="name">${c.name}</div><button class="icon-btn" style="margin-top:6px" onclick='editCustomer(${cid})'>Edit Customer</button><div class="muted">${c.phone||"Phone not added"}${c.email?` • ${c.email}`:""}${c.referenceNumber?` • Ref ${c.referenceNumber}`:""}</div></td><td>${c.service}</td><td>${c.due}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="icon-btn" onclick='whatsApp(customerById(${cid}))'>WhatsApp</button></td></tr>`}).join("");
  const accountAvailability=accounts.slice(0,5).map(a=>`<div class="notice clickable-card" onclick="openSection('accounts','${a.used>=a.slots?'Full':'Available'}')"><div><strong>${a.name}</strong><small>${a.used} of ${a.slots} slots used</small></div><span class="badge ${a.used>=a.slots?'full':'available'}">${availableSlots(a)} available</span></div>`);
  const availableProfiles=customers.filter(c=>c.status==="Available").slice(0,5).map(c=>`<div class="notice clickable-card" onclick="openSection('customers','Available')"><div><strong>${c.name}</strong><small>${c.service} • ${c.plan||"Available subscription"}</small></div><span class="badge available">Available</span></div>`);
  document.getElementById("availabilityList").innerHTML=[...accountAvailability,...availableProfiles].join("")||'<div class="muted">No available subscription accounts.</div>';
@@ -299,16 +304,16 @@ function render(){refreshAutomaticStatuses();
 function renderCustomers(){
  const q=(document.getElementById("customerSearch")?.value||"").toLowerCase(),st=document.getElementById("statusFilter")?.value||"",sv=document.getElementById("serviceFilter")?.value||"";
  const rows=customers.filter(c=>(!q||[c.name,c.phone,c.email,c.referenceNumber,c.service].join(" ").toLowerCase().includes(q))&&(!st||c.status===st)&&(!sv||c.service===sv));
- document.getElementById("customerRows").innerHTML=rows.map(c=>`<tr><td><strong>#${c.billNumber}</strong></td><td><div class="name">${c.name}</div><div class="muted">${c.phone||"Phone not added"}${c.email?` • ${c.email}`:""}${c.referenceNumber?` • Ref ${c.referenceNumber}`:""}</div></td><td>${c.service}<div class="muted">${c.plan}${c.signupFee?` • Sign-up fee ${money(c.signupFee)}`:""}</div></td><td>${c.account||"—"}<div class="muted">${c.profile||""}</div></td><td>${money(c.amount)}</td><td>${c.due}</td><td>${c.expiry}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="icon-btn" onclick="editCustomer(${c.id})">Edit</button> <button class="icon-btn" onclick="markPaid(${c.id})">Paid</button> <button class="icon-btn" onclick="whatsApp(customers.find(x=>x.id===${c.id}))">Message</button></td></tr>`).join("")||`<tr><td colspan="9">No matching customers.</td></tr>`;
+ document.getElementById("customerRows").innerHTML=rows.map(c=>{const cid=JSON.stringify(String(c.id));return `<tr><td><strong>#${c.billNumber}</strong></td><td><div class="name">${c.name}</div><div class="muted">${c.phone||"Phone not added"}${c.email?` • ${c.email}`:""}${c.referenceNumber?` • Ref ${c.referenceNumber}`:""}</div></td><td>${c.service}<div class="muted">${c.plan}${c.signupFee?` • Sign-up fee ${money(c.signupFee)}`:""}</div></td><td>${c.account||"—"}<div class="muted">${c.profile||""}</div></td><td>${money(c.amount)}</td><td>${c.due}</td><td>${c.expiry}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="icon-btn" onclick='editCustomer(${cid})'>Edit</button> <button class="icon-btn" onclick='markPaid(${cid})'>Paid</button> <button class="icon-btn" onclick='whatsApp(customerById(${cid}))'>Message</button></td></tr>`}).join("")||`<tr><td colspan="9">No matching customers.</td></tr>`;
 }
-function renderAccounts(){document.getElementById("accountCards").innerHTML=accounts.map(a=>`<div class="account-card"><div class="account-top"><div><div class="name">${a.name}</div><div class="muted">${a.service}</div></div><span class="badge ${slug(a.status)}">${a.status}</span></div><div class="progress"><div style="width:${Math.min(100,a.used/a.slots*100)}%"></div></div><div class="kv"><div><small>Available slots</small><strong>${availableSlots(a)}</strong></div><div><small>Used slots</small><strong>${a.used}</strong></div><div><small>Provider cost</small><strong>${money(a.cost)}</strong></div><div><small>King Tech payment</small><strong>${a.providerDue}</strong></div><div><small>Account expiry</small><strong>${a.providerExpiry||"Not set"}</strong></div></div><div style="margin-top:14px"><div class="muted">Login</div><strong>${a.login}</strong><div class="muted" style="margin-top:7px">Password: •••••••••</div></div><div style="margin-top:14px"><button class="icon-btn" onclick="editAccount(${a.id})">Edit Account</button></div></div>`).join("")}
-function renderReminders(){const f=document.getElementById("reminderFilter")?.value||"";const r=customers.filter(c=>isPayableCustomer(c)&&(!f||c.status===f)).sort((a,b)=>String(a.due||"").localeCompare(String(b.due||"")));document.getElementById("reminderRows").innerHTML=r.map(c=>`<tr><td><div class="name">${c.name}</div><div class="muted">Bill #${c.billNumber} • ${c.phone||"Phone not added"}</div></td><td>${c.service}</td><td>${c.due}</td><td>${money(c.amount)}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td>${c.phone?`<button class="primary" onclick="whatsApp(customers.find(x=>x.id===${c.id}))">Open WhatsApp</button>`:'<span class="muted">Add phone number</span>'}</td></tr>`).join("")||'<tr><td colspan="6">No reminders match this filter.</td></tr>'}
+function renderAccounts(){const cards=document.getElementById("accountCards");if(cards)cards.innerHTML=accounts.map(a=>{const aid=JSON.stringify(String(a.id)),password=a.password?`<span id="password-${String(a.id).replace(/[^a-zA-Z0-9_-]/g,"-")}">••••••••</span> <button class="icon-btn" onclick='showStoredPassword(${aid},this)'>Show</button> <button class="icon-btn" onclick='copyAccountValue(${JSON.stringify(a.password)},"Password")'>Copy</button>`:'<span class="muted">Not added</span>';return `<div class="account-card"><div class="account-top"><div><div class="name">${a.name}</div><div class="muted">${a.service}</div></div><span class="badge ${slug(a.status)}">${a.status}</span></div><div class="progress"><div style="width:${Math.min(100,a.used/a.slots*100)}%"></div></div><div class="kv"><div><small>Available slots</small><strong>${availableSlots(a)}</strong></div><div><small>Used slots</small><strong>${a.used}</strong></div><div><small>Provider cost</small><strong>${money(a.cost)}</strong></div><div><small>King Tech payment</small><strong>${a.providerDue}</strong></div><div><small>Last paid</small><strong>${a.lastProviderPaidDate||"Never"}</strong></div><div><small>Account expiry</small><strong>${a.providerExpiry||"Not set"}</strong></div></div><div style="margin-top:14px"><div class="muted">Login</div><strong>${a.login}</strong> <button class="icon-btn" onclick='copyAccountValue(${JSON.stringify(a.login||"")},"Login")'>Copy</button><div class="muted" style="margin-top:9px">Password</div><div>${password}</div></div><div style="margin-top:14px;display:flex;gap:7px;flex-wrap:wrap"><button class="icon-btn" onclick='editAccount(${aid})'>Edit</button><button class="primary" onclick='openProviderPayment(${aid})'>Mark Provider Paid</button><button class="icon-btn" onclick='deleteAccount(${aid})'>Delete</button></div></div>`}).join("")||'<div class="muted">No subscription accounts added yet.</div>';const history=document.getElementById("providerPaymentRows");if(history)history.innerHTML=[...providerPayments].sort((a,b)=>String(b.paidDate||b.createdAt||"").localeCompare(String(a.paidDate||a.createdAt||""))).map(p=>`<tr><td>${p.paidDate||""}</td><td>${p.accountName||"Unknown"}</td><td>${p.service||"—"}</td><td>${money(p.amount)}</td><td>${p.nextDue||"—"}</td><td>${p.agent||"—"}</td></tr>`).join("")||'<tr><td colspan="6">No provider payments recorded yet.</td></tr>';const deleted=document.getElementById("deletedAccountRows");if(deleted)deleted.innerHTML=[...deletedAccounts].sort((a,b)=>String(b.deletedAt||"").localeCompare(String(a.deletedAt||""))).map(a=>{const aid=JSON.stringify(String(a.id));return `<tr><td>${a.name}</td><td>${a.service}</td><td>${dateInputValue(a.deletedAt)||"—"}</td><td>${a.deletedBy||"—"}</td><td><button class="primary" onclick='restoreAccount(${aid})'>Restore</button></td></tr>`}).join("")||'<tr><td colspan="5">No deleted accounts.</td></tr>'}
+function renderReminders(){const f=document.getElementById("reminderFilter")?.value||"";const r=customers.filter(c=>isPayableCustomer(c)&&(!f||c.status===f)).sort((a,b)=>String(a.due||"").localeCompare(String(b.due||"")));document.getElementById("reminderRows").innerHTML=r.map(c=>{const cid=JSON.stringify(String(c.id));return `<tr><td><div class="name">${c.name}</div><div class="muted">Bill #${c.billNumber} • ${c.phone||"Phone not added"}</div></td><td>${c.service}</td><td>${c.due}</td><td>${money(c.amount)}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td>${c.phone?`<button class="primary" onclick='whatsApp(customerById(${cid}))'>Open WhatsApp</button>`:'<span class="muted">Add phone number</span>'}</td></tr>`}).join("")||'<tr><td colspan="6">No reminders match this filter.</td></tr>'}
 function renderPayments(){const payable=customers.filter(isPayableCustomer),periodPayments=filteredPayments(),dueTotal=payable.reduce((s,c)=>s+Number(c.amount||0),0),received=periodPayments.reduce((s,p)=>s+Number(p.amount||0),0);document.getElementById("paymentSummary").innerHTML=[
  [money(received),"Payments Received",periodLabel(),"payments",""],
  [money(dueTotal),"Outstanding","Current unpaid total","reminders","Overdue"],
  [periodPayments.length,"Transactions",periodLabel(),"payments",""],
  [customers.filter(c=>c.status==="Did Not Renew").length,"Did Not Renew","Slots can be reassigned","customers","Did Not Renew"]
-].map(x=>`<div class="stat clickable-card" onclick="openSection('${x[3]}','${x[4]}')"><span>${x[1]}</span><strong>${x[0]}</strong><small>${x[2]}</small></div>`).join("");document.getElementById("paymentRows").innerHTML=payable.sort((a,b)=>String(a.due||"").localeCompare(String(b.due||""))).map(c=>`<tr><td>${c.name}<div class="muted">Bill #${c.billNumber}</div></td><td>${c.service}</td><td>${money(c.amount)}</td><td>${c.due}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="icon-btn" onclick="markPaid(${c.id})">Mark Paid</button></td></tr>`).join("")||'<tr><td colspan="6">No outstanding customer payments.</td></tr>';const history=[...periodPayments].sort((a,b)=>String(b.createdAt||b.date||"").localeCompare(String(a.createdAt||a.date||"")));document.getElementById("paymentHistoryRows").innerHTML=history.map(p=>{const pid=JSON.stringify(String(p.id));return `<tr><td>${p.date||""}</td><td>${p.customerName||"Unknown"}<div class="muted">${p.billNumber?`Bill #${p.billNumber}`:""}</div></td><td>${paymentService(p)}</td><td>${money(p.amount)}</td><td>${p.agent||"—"}</td><td><button class="icon-btn" onclick='editRecordedPayment(${pid})'>Edit</button> <button class="icon-btn" onclick='removePayment(${pid})'>Remove</button></td></tr>`}).join("")||`<tr><td colspan="6">No payments recorded for ${periodLabel().toLowerCase()}.</td></tr>`}
+].map(x=>`<div class="stat clickable-card" onclick="openSection('${x[3]}','${x[4]}')"><span>${x[1]}</span><strong>${x[0]}</strong><small>${x[2]}</small></div>`).join("");document.getElementById("paymentRows").innerHTML=payable.sort((a,b)=>String(a.due||"").localeCompare(String(b.due||""))).map(c=>{const cid=JSON.stringify(String(c.id));return `<tr><td>${c.name}<div class="muted">Bill #${c.billNumber}</div></td><td>${c.service}</td><td>${money(c.amount)}</td><td>${c.due}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="icon-btn" onclick='markPaid(${cid})'>Mark Paid</button></td></tr>`}).join("")||'<tr><td colspan="6">No outstanding customer payments.</td></tr>';const history=[...periodPayments].sort((a,b)=>String(b.createdAt||b.date||"").localeCompare(String(a.createdAt||a.date||"")));document.getElementById("paymentHistoryRows").innerHTML=history.map(p=>{const pid=JSON.stringify(String(p.id));return `<tr><td>${p.date||""}</td><td>${p.customerName||"Unknown"}<div class="muted">${p.billNumber?`Bill #${p.billNumber}`:""}</div></td><td>${paymentService(p)}</td><td>${money(p.amount)}</td><td>${p.agent||"—"}</td><td><button class="icon-btn" onclick='editRecordedPayment(${pid})'>Edit</button> <button class="icon-btn" onclick='removePayment(${pid})'>Remove</button></td></tr>`}).join("")||`<tr><td colspan="6">No payments recorded for ${periodLabel().toLowerCase()}.</td></tr>`}
 function renderExpenses(){document.getElementById("expenseRows").innerHTML=[...expenses].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).map(x=>{const xid=JSON.stringify(String(x.id));return `<tr><td>${x.date}</td><td>${x.description}</td><td>${x.category}</td><td>${money(x.amount)}</td><td><button class="icon-btn" onclick='removeExpense(${xid})'>Remove</button></td></tr>`}).join("")||'<tr><td colspan="5">No expenses recorded yet.</td></tr>'}
 function renderReports(){const periodPayments=filteredPayments(),periodExpenses=filteredExpenses(),monthlyIncome=billableCustomers().reduce((s,c)=>s+Number(c.amount||0),0),received=periodPayments.reduce((s,p)=>s+Number(p.amount||0),0),exp=periodExpenses.reduce((s,x)=>s+Number(x.amount||0),0),cashProfit=received-exp;document.getElementById("reportStats").innerHTML=[
  [money(monthlyIncome),"Monthly Income","Current billable subscriptions","customers"],
@@ -321,11 +326,11 @@ function fillSelects(){const services=[...new Set(customers.map(c=>c.service))];
 document.getElementById("customerService").onchange=()=>{updateSubscriptionPlans();updateCustomerAccountOptions()};document.getElementById("customerPlan").onchange=updateSubscriptionPrice;
 document.getElementById("customerSearch").oninput=renderCustomers;document.getElementById("statusFilter").onchange=renderCustomers;document.getElementById("serviceFilter").onchange=renderCustomers;document.getElementById("reminderFilter").onchange=renderReminders;
 function editCustomer(id){
- const c=customers.find(x=>x.id===id);if(!c)return;
+ const c=customers.find(x=>String(x.id)===String(id));if(!c)return;
  const form=document.getElementById("customerForm");
  document.getElementById("customerModalTitle").textContent="Edit Customer";
  document.getElementById("customerSaveButton").textContent="Save Changes";
- form.editId.value=String(c.id);
+ form.elements.editId.value=String(c.id);
  ["name","phone","email","referenceNumber","billNumber","service","plan","amount","signupFee","account","status","due","expiry"].forEach(k=>{if(form.elements[k])form.elements[k].value=["due","expiry"].includes(k)?dateInputValue(c[k]):(c[k]??"")});
  updateSubscriptionPlans();
  form.plan.value=c.plan||"";
@@ -334,18 +339,25 @@ function editCustomer(id){
  document.getElementById("customerModal").classList.add("open");
 }
 function resetCustomerForm(){
- const form=document.getElementById("customerForm");form.reset();form.editId.value="";
+ const form=document.getElementById("customerForm");form.reset();form.elements.editId.value="";
  document.getElementById("customerModalTitle").textContent="Add Customer";
  document.getElementById("customerSaveButton").textContent="Save Customer";
  fillSubscriptionServices();
 }
-document.getElementById("customerForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const editId=Number(f.editId||0);delete f.editId;const existing=customers.find(x=>x.id===editId);if(f.account&&f.account!==existing?.account){const target=accounts.find(a=>a.name===f.account);if(!target||target.service!==f.service||availableSlots(target)<=0){toast("Choose an available account for this service");return}}const clean={...f,billNumber:String(f.billNumber),amount:+f.amount,signupFee:+(f.signupFee||0),profile:f.name};if(["Did Not Renew","Available","Expired"].includes(clean.status))clean.account="";if(editId){const i=customers.findIndex(x=>x.id===editId);if(i>=0)customers[i]={...customers[i],...clean};toast("Customer information updated")}else{customers.push({...clean,id:Date.now(),status:f.status||"Active"});toast("Customer added")}refreshAutomaticStatuses();e.target.closest(".modal").classList.remove("open");resetCustomerForm();save()};
-function editAccount(id){const a=accounts.find(x=>x.id===id);if(!a)return;const form=document.getElementById("accountForm");document.getElementById("accountModalTitle").textContent="Edit Subscription Account";document.getElementById("accountSaveButton").textContent="Save Changes";form.editId.value=String(a.id);["service","name","login","password","slots","providerDue","providerExpiry","cost","status"].forEach(k=>{if(form.elements[k])form.elements[k].value=["providerDue","providerExpiry"].includes(k)?dateInputValue(a[k]):(a[k]??"")});form.elements.used.value=a.manualUsed??a.used??0;form.elements.status.value=a.manualStatus??a.status??"Available";document.getElementById("accountModal").classList.add("open")}
-function resetAccountForm(){const form=document.getElementById("accountForm");form.reset();form.editId.value="";document.getElementById("accountModalTitle").textContent="Add Subscription Account";document.getElementById("accountSaveButton").textContent="Save Account"}
-document.getElementById("accountForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const editId=Number(f.editId||0);delete f.editId;const clean={...f,slots:+f.slots,manualUsed:+f.used,used:+f.used,cost:+f.cost,manualStatus:f.status};if(editId){const i=accounts.findIndex(x=>x.id===editId);if(i>=0){const oldName=accounts[i].name;accounts[i]={...accounts[i],...clean};if(oldName!==clean.name)customers.forEach(c=>{if(c.account===oldName)c.account=clean.name});toast("Subscription account updated")}}else{accounts.push({...clean,id:Date.now()});toast("Subscription account added")}refreshAutomaticStatuses();e.target.reset();e.target.closest(".modal").classList.remove("open");resetAccountForm();save()};
+document.getElementById("customerForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target)),editId=String(f.editId||"");delete f.editId;const existing=customers.find(x=>String(x.id)===editId);if(f.account&&f.account!==existing?.account){const target=accounts.find(a=>a.name===f.account);if(!target||target.service!==f.service||availableSlots(target)<=0){toast("Choose an available account for this service");return}}const clean={...f,billNumber:String(f.billNumber),amount:+f.amount,signupFee:+(f.signupFee||0),profile:f.name};if(["Did Not Renew","Available","Expired"].includes(clean.status))clean.account="";if(editId){const i=customers.findIndex(x=>String(x.id)===editId);if(i>=0)customers[i]={...customers[i],...clean};toast("Customer information updated")}else{customers.push({...clean,id:Date.now(),status:f.status||"Active"});toast("Customer added")}refreshAutomaticStatuses();e.target.closest(".modal").classList.remove("open");resetCustomerForm();save()};
+function editAccount(id){const a=accounts.find(x=>String(x.id)===String(id));if(!a)return;const form=document.getElementById("accountForm");document.getElementById("accountModalTitle").textContent="Edit Subscription Account";document.getElementById("accountSaveButton").textContent="Save Changes";form.elements.editId.value=String(a.id);["service","name","login","password","slots","providerDue","providerExpiry","cost","status"].forEach(k=>{if(form.elements[k])form.elements[k].value=["providerDue","providerExpiry"].includes(k)?dateInputValue(a[k]):(a[k]??"")});form.elements.used.value=a.manualUsed??a.used??0;form.elements.status.value=a.manualStatus??a.status??"Available";document.getElementById("accountModal").classList.add("open")}
+function resetAccountForm(){const form=document.getElementById("accountForm");form.reset();form.elements.editId.value="";document.getElementById("accountModalTitle").textContent="Add Subscription Account";document.getElementById("accountSaveButton").textContent="Save Account"}
+document.getElementById("accountForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target)),editId=String(f.editId||"");delete f.editId;const clean={...f,password:f.password||"",slots:+f.slots,manualUsed:+f.used,used:+f.used,cost:+f.cost,manualStatus:f.status};if(editId){const i=accounts.findIndex(x=>String(x.id)===editId);if(i>=0){const oldName=accounts[i].name;accounts[i]={...accounts[i],...clean};if(oldName!==clean.name)customers.forEach(c=>{if(c.account===oldName)c.account=clean.name});toast("Subscription account updated")}}else{accounts.push({...clean,id:Date.now()});toast("Subscription account added")}refreshAutomaticStatuses();e.target.reset();e.target.closest(".modal").classList.remove("open");resetAccountForm();save()};
+function toggleAccountPassword(){const input=document.getElementById("accountPassword");if(input)input.type=input.type==="password"?"text":"password"}
+function copyAccountValue(value,label){if(!value){toast(`${label} is not added`);return}navigator.clipboard?.writeText(String(value)).then(()=>toast(`${label} copied`)).catch(()=>toast(`Could not copy ${label.toLowerCase()}`))}
+function showStoredPassword(id,button){const a=accounts.find(x=>String(x.id)===String(id));if(!a?.password)return;const target=document.getElementById(`password-${String(a.id).replace(/[^a-zA-Z0-9_-]/g,"-")}`),showing=target?.textContent===a.password;if(target)target.textContent=showing?"••••••••":a.password;if(button)button.textContent=showing?"Show":"Hide"}
+function deleteAccount(id){const i=accounts.findIndex(x=>String(x.id)===String(id));if(i<0)return;const a=accounts[i];if(!confirm(`Move ${a.name} to Deleted Accounts? You can restore it later.`))return;deletedAccounts.unshift({...a,deletedAt:new Date().toISOString(),deletedBy:getAgentName()});accounts.splice(i,1);save();toast("Account moved to Deleted Accounts")}
+function restoreAccount(id){const i=deletedAccounts.findIndex(x=>String(x.id)===String(id));if(i<0)return;const restored={...deletedAccounts[i]};delete restored.deletedAt;delete restored.deletedBy;accounts.push(restored);deletedAccounts.splice(i,1);save();toast("Account restored")}
+function openProviderPayment(id){const a=accounts.find(x=>String(x.id)===String(id));if(!a)return;const form=document.getElementById("providerPaymentForm"),today=new Date().toISOString().slice(0,10),next=dateOnly(a.providerDue)||new Date();next.setMonth(next.getMonth()+1);form.elements.accountId.value=String(a.id);form.elements.accountName.value=a.name;form.elements.amount.value=Number(a.cost||0);form.elements.paidDate.value=today;form.elements.nextDue.value=next.toISOString().slice(0,10);document.getElementById("providerPaymentModal").classList.add("open")}
+const providerPaymentForm=document.getElementById("providerPaymentForm");if(providerPaymentForm)providerPaymentForm.onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target)),a=accounts.find(x=>String(x.id)===String(f.accountId));if(!a){toast("Account was not found");return}a.providerDue=f.nextDue;a.lastProviderPaidDate=f.paidDate;providerPayments.unshift({id:Date.now(),accountId:a.id,accountName:a.name,service:a.service,amount:Number(f.amount||0),paidDate:f.paidDate,nextDue:f.nextDue,agent:getAgentName(),createdAt:new Date().toISOString()});e.target.closest(".modal").classList.remove("open");save();toast("Provider account marked paid")};
 document.getElementById("paymentForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const c=customers.find(x=>x.id==f.customerId);c.due=f.newDue;c.expiry=f.newExpiry;c.status="Active";payments.push({id:Date.now(),customerId:c.id,billNumber:c.billNumber,customerName:c.name,service:c.service,amount:+f.amount,date:new Date().toISOString().slice(0,10),newDue:f.newDue,newExpiry:f.newExpiry,agent:getAgentName(),createdAt:new Date().toISOString()});e.target.reset();e.target.closest(".modal").classList.remove("open");save();toast("Payment marked as received")};
 function editRecordedPayment(id){const p=payments.find(x=>String(x.id)===String(id));if(!p)return;const form=document.getElementById("paymentEditForm"),customer=customers.find(c=>String(c.id)===String(p.customerId));form.elements.paymentId.value=String(p.id);form.elements.customerName.value=p.customerName||customer?.name||"Unknown";form.elements.amount.value=Number(p.amount||0);form.elements.date.value=dateInputValue(p.date||p.createdAt)||new Date().toISOString().slice(0,10);document.getElementById("paymentEditModal").classList.add("open")}
-document.getElementById("paymentEditForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target)),p=payments.find(x=>String(x.id)===String(f.paymentId));if(!p){toast("Payment record was not found");return}p.amount=Number(f.amount||0);p.date=f.date;p.updatedAt=new Date().toISOString();p.updatedBy=getAgentName();e.target.closest(".modal").classList.remove("open");save();toast("Payment updated")};
+const paymentEditForm=document.getElementById("paymentEditForm");if(paymentEditForm)paymentEditForm.onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target)),p=payments.find(x=>String(x.id)===String(f.paymentId));if(!p){toast("Payment record was not found");return}p.amount=Number(f.amount||0);p.date=f.date;p.updatedAt=new Date().toISOString();p.updatedBy=getAgentName();e.target.closest(".modal").classList.remove("open");save();toast("Payment updated")};
 document.getElementById("expenseForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));expenses.unshift({...f,id:Date.now(),amount:+f.amount,agent:getAgentName(),createdAt:new Date().toISOString()});e.target.reset();e.target.closest(".modal").classList.remove("open");save();toast("Expense added")};
 const resetDataButton=document.getElementById("resetData");
 if(resetDataButton)resetDataButton.onclick=()=>toast("Device reset is disabled while Firebase sync is active");
@@ -362,7 +374,7 @@ function saveAgentName(){const v=document.getElementById("agentNameInput").value
 window.getKingTechSnapshot=syncPayload;
 window.applyFirebaseSnapshot=data=>{
   if(!data||!Array.isArray(data.customers))return;
-  customers=data.customers;accounts=data.accounts||[];payments=data.payments||[];expenses=data.expenses||[];
+  customers=data.customers;accounts=data.accounts||[];payments=data.payments||[];expenses=data.expenses||[];deletedAccounts=data.deletedAccounts||[];providerPayments=data.providerPayments||[];
   bulkReminderLog=data.reminderLog||{};
   refreshAutomaticStatuses();saveLocalOnly();render();updateSyncUI(`Live — ${customers.length} customers synced`);
 };
@@ -374,7 +386,7 @@ function setSyncMode(mode){localStorage.setItem("kt_sync_mode",mode);if(["migrat
 
 function syncPayload(){
   refreshAutomaticStatuses();
-  return {schemaVersion:"2.0",sheetId:LIVE_SHEET_ID,deviceId:deviceId(),agent:getAgentName(),updatedAt:new Date().toISOString(),customers,accounts,payments,expenses,reminderHistory:Object.entries(bulkReminderLog||{}).map(([key,sentAt])=>({id:key,key,sentAt}))};
+  return {schemaVersion:"3.4",sheetId:LIVE_SHEET_ID,deviceId:deviceId(),agent:getAgentName(),updatedAt:new Date().toISOString(),customers,accounts,payments,expenses,deletedAccounts,providerPayments,reminderHistory:Object.entries(bulkReminderLog||{}).map(([key,sentAt])=>({id:key,key,sentAt}))};
 }
 function hashData(data){try{return JSON.stringify(data).length+":"+(data.updatedAt||"")}catch{return String(Date.now())}}
 function updateSyncUI(message){
@@ -529,7 +541,7 @@ async function importBackup(){
     if(!Array.isArray(d.customers)||!Array.isArray(d.accounts))throw new Error("Invalid backup");
     if(!window.kingTechFirebase?.ready){toast("Sign in to Firebase first");return}
     if(!confirm(`Upload ${d.customers.length} customers, ${d.payments?.length||0} payments and ${d.accounts.length} accounts to Firebase?`))return;
-    customers=d.customers;accounts=d.accounts;payments=d.payments||[];expenses=d.expenses||[];
+    customers=d.customers;accounts=d.accounts;payments=d.payments||[];expenses=d.expenses||[];deletedAccounts=d.deletedAccounts||[];providerPayments=d.providerPayments||[];
     if(d.reminderLog)bulkReminderLog=d.reminderLog;refreshAutomaticStatuses();saveLocalOnly();render();await window.kingTechFirebase.replace(syncPayload());toast("Backup uploaded to Firebase")
   }catch(e){toast("Backup file could not be imported")}
 }
@@ -571,7 +583,7 @@ function renderBulkMessages(){
   const rows=document.getElementById("bulkCustomerRows");
   rows.innerHTML=eligible.map(c=>`
     <tr>
-      <td><input type="checkbox" ${bulkSelectedIds.includes(c.id)?"checked":""} onchange="toggleBulkCustomer(${c.id},this.checked)"></td>
+      <td><input type="checkbox" ${bulkSelectedIds.some(id=>String(id)===String(c.id))?"checked":""} onchange='toggleBulkCustomer(${JSON.stringify(String(c.id))},this.checked)'></td>
       <td><strong>${c.name}</strong><div class="muted">${c.phone||"No WhatsApp number"} • Bill #${c.billNumber}</div></td>
       <td>${c.service}</td>
       <td><span class="badge ${slug(c.status)}">${c.status}</span></td>
@@ -580,17 +592,17 @@ function renderBulkMessages(){
     </tr>`).join("")||'<tr><td colspan="6" class="muted">No customers match the selected filters.</td></tr>';
 }
 function toggleBulkCustomer(id,checked){
-  if(checked&&!bulkSelectedIds.includes(id))bulkSelectedIds.push(id);
-  if(!checked)bulkSelectedIds=bulkSelectedIds.filter(x=>x!==id);
+  if(checked&&!bulkSelectedIds.some(x=>String(x)===String(id)))bulkSelectedIds.push(String(id));
+  if(!checked)bulkSelectedIds=bulkSelectedIds.filter(x=>String(x)!==String(id));
   renderBulkMessages();
 }
 function toggleBulkSelectAll(checked){
-  const ids=bulkEligibleCustomers().map(c=>c.id);
-  bulkSelectedIds=checked?[...new Set([...bulkSelectedIds,...ids])]:bulkSelectedIds.filter(id=>!ids.includes(id));
+  const ids=bulkEligibleCustomers().map(c=>String(c.id));
+  bulkSelectedIds=checked?[...new Set([...bulkSelectedIds.map(String),...ids])]:bulkSelectedIds.filter(id=>!ids.includes(String(id)));
   renderBulkMessages();
 }
 function selectBulkFiltered(){
-  bulkSelectedIds=[...new Set(bulkEligibleCustomers().map(c=>c.id))];
+  bulkSelectedIds=[...new Set(bulkEligibleCustomers().map(c=>String(c.id)))];
   renderBulkMessages();
   toast(`${bulkSelectedIds.length} customers selected`);
 }
@@ -659,13 +671,13 @@ This is a friendly reminder that your subscription payment is coming up.
 Thank you for choosing *King Tech* 👑`;
 }
 function previewBulkMessage(){
-  const c=customers.find(x=>bulkSelectedIds.includes(x.id))||bulkEligibleCustomers()[0];
+  const c=customers.find(x=>bulkSelectedIds.some(id=>String(id)===String(x.id)))||bulkEligibleCustomers()[0];
   if(!c){toast("Select at least one customer first");return}
   const type=document.getElementById("bulkMessageType").value;
   alert(buildBulkMessage(c,type));
 }
 function startBulkQueue(){
-  const selected=customers.filter(c=>bulkSelectedIds.includes(c.id));
+  const selected=customers.filter(c=>bulkSelectedIds.some(id=>String(id)===String(c.id)));
   const duplicateMode=document.getElementById("bulkDuplicateMode").value;
   const today=todayKey();
   bulkQueue=selected.filter(c=>{

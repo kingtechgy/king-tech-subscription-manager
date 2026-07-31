@@ -1,4 +1,4 @@
-const CACHE_NAME = 'king-tech-manager-v3.3-financial-periods';
+const CACHE_NAME = 'king-tech-manager-v3.4-account-recovery';
 const ASSETS = [
   './',
   './index.html',
@@ -24,6 +24,12 @@ self.addEventListener('fetch', event => {
     event.respondWith(fetch(event.request).then(response => {
       const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put('./index.html',copy));return response;
     }).catch(()=>caches.match('./index.html')));
+    return;
+  }
+  if (event.request.destination === 'script') {
+    event.respondWith(fetch(event.request).then(response => {
+      const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(event.request,copy));return response;
+    }).catch(()=>caches.match(event.request).then(hit=>hit||caches.match('./'+new URL(event.request.url).pathname.split('/').pop()))));
     return;
   }
   event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
