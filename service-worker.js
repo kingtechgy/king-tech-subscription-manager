@@ -1,4 +1,4 @@
-const CACHE_NAME = 'king-tech-manager-v25-multi-device-join';
+const CACHE_NAME = 'king-tech-manager-v2.5.1-join-fix';
 const ASSETS = [
   './',
   './index.html',

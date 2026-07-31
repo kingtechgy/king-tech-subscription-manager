@@ -601,6 +601,34 @@ function updateSyncUI(message){
   else if(mode==="joined")text.textContent="Agent device joined — shared records refresh automatically every 20 seconds";
   else text.textContent=url?"Choose Migrate This Device or Join Shared Database":"Local mode — paste the Apps Script Web App URL to begin";
 }
+function apiJsonp(action,payload={}){
+  const base=getSyncUrl();
+  if(!base)return Promise.reject(new Error("Sync URL is not configured"));
+  return new Promise((resolve,reject)=>{
+    const callback="ktSyncCb_"+Date.now()+"_"+Math.random().toString(36).slice(2);
+    const script=document.createElement("script");
+    let finished=false;
+    const cleanup=()=>{
+      if(finished)return;
+      finished=true;
+      clearTimeout(timer);
+      try{delete window[callback]}catch(_){window[callback]=undefined}
+      script.remove();
+    };
+    const timer=setTimeout(()=>{cleanup();reject(new Error("Connection timed out"))},20000);
+    window[callback]=(result)=>{
+      cleanup();
+      if(!result||result.ok===false)reject(new Error((result&&result.error)||"Sync request failed"));
+      else resolve(result);
+    };
+    const params=new URLSearchParams({action,callback});
+    Object.entries(payload).forEach(([key,value])=>params.set(key,typeof value==="string"?value:JSON.stringify(value)));
+    script.src=base+(base.includes("?")?"&":"?")+params.toString();
+    script.onerror=()=>{cleanup();reject(new Error("Could not reach Apps Script"))};
+    document.head.appendChild(script);
+  });
+}
+
 async function apiRequest(action,payload={}){
   const url=getSyncUrl();if(!url)throw new Error("Sync URL is not configured");
   const response=await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action,...payload})});
