@@ -1,6 +1,6 @@
 
 
-const APP_DATA_VERSION = "shared-sync-v2.6";
+const APP_DATA_VERSION = "shared-sync-v2.7";
 // Never clear existing records during an update. Keep a one-time safety copy first.
 if(!localStorage.getItem("kt_pre_v2_backup")){
   const safety={
@@ -23,6 +23,9 @@ let accounts = JSON.parse(localStorage.getItem("kt_accounts")||"null") || struct
 let expenses = JSON.parse(localStorage.getItem("kt_expenses")||"null") || structuredClone(initialExpenses);
 let payments = JSON.parse(localStorage.getItem("kt_payments")||"[]");
 let bulkReminderLog = JSON.parse(localStorage.getItem("kt_bulk_reminders")||"{}");
+let bulkSelectedIds = [];
+let bulkQueue = [];
+let bulkQueueIndex = 0;
 const money=n=>"$"+Number(n||0).toLocaleString()+" GYD";
 const slug=s=>s.toLowerCase().replaceAll(" ","-");
 const subscriptionPackages={
@@ -262,6 +265,10 @@ Thank you for choosing *King Tech* 👑`;
  openWhatsAppMessage(c.phone,msg);
 }
 function markPaid(id){const c=customers.find(x=>x.id===id);document.getElementById("paymentCustomer").value=id;document.querySelector("#paymentForm [name=amount]").value=c.amount;document.getElementById("paymentModal").classList.add("open")}
+const PAYABLE_CUSTOMER_STATUSES=new Set(["Due Soon","Due Today","Overdue","Expired"]);
+function isPayableCustomer(c){return PAYABLE_CUSTOMER_STATUSES.has(c.status)}
+function removePayment(id){if(!confirm("Remove this payment record? The customer's current due date will not be changed."))return;payments=payments.filter(p=>p.id!==id);save();toast("Payment record removed")}
+function removeExpense(id){if(!confirm("Remove this expense record?"))return;expenses=expenses.filter(x=>x.id!==id);save();toast("Expense removed")}
 function render(){refreshAutomaticStatuses();
  const active=customers.filter(c=>c.status==="Active").length,due=customers.filter(c=>["Due Soon","Due Today"].includes(c.status)).length,over=customers.filter(c=>["Overdue","Expired"].includes(c.status)).length,slots=accounts.filter(a=>!["Expired","Inactive"].includes(a.status)).reduce((s,a)=>s+availableSlots(a),0);
  document.getElementById("stats").innerHTML=[
@@ -270,7 +277,7 @@ function render(){refreshAutomaticStatuses();
  [over,"Overdue / Expired","Needs follow-up","reminders","Overdue"],
  [slots,"Available Slots","Ready for new customers","accounts","Available"]
 ].map(x=>`<div class="stat clickable-card" onclick="openSection('${x[3]}','${x[4]}')"><span>${x[1]}</span><strong>${x[0]}</strong><small>${x[2]}</small></div>`).join("");
- const attention=customers.filter(c=>c.status!=="Active").slice(0,8);
+ const attention=customers.filter(isPayableCustomer).sort((a,b)=>String(a.due||"").localeCompare(String(b.due||""))).slice(0,8);
  document.getElementById("attentionRows").innerHTML=attention.map(c=>`<tr><td><div class="name">${c.name}</div><button class="icon-btn" style="margin-top:6px" onclick="editCustomer(${c.id})">Edit Customer</button><div class="muted">${c.phone||"Phone not added"}${c.email?` • ${c.email}`:""}${c.referenceNumber?` • Ref ${c.referenceNumber}`:""}</div></td><td>${c.service}</td><td>${c.due}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="icon-btn" onclick="whatsApp(customers.find(x=>x.id===${c.id}))">WhatsApp</button></td></tr>`).join("");
  document.getElementById("availabilityList").innerHTML=accounts.slice(0,5).map(a=>`<div class="notice clickable-card" onclick="openSection('accounts','${a.used>=a.slots?'Full':'Available'}')"><div><strong>${a.name}</strong><small>${a.used} of ${a.slots} slots used</small></div><span class="badge ${a.used>=a.slots?'full':'available'}">${availableSlots(a)} available</span></div>`).join("");
  renderCustomers(); renderAccounts(); renderReminders(); renderPayments(); renderExpenses(); renderReports(); fillSelects(); renderBulkMessages();
@@ -281,22 +288,23 @@ function renderCustomers(){
  document.getElementById("customerRows").innerHTML=rows.map(c=>`<tr><td><strong>#${c.billNumber}</strong></td><td><div class="name">${c.name}</div><div class="muted">${c.phone||"Phone not added"}${c.email?` • ${c.email}`:""}${c.referenceNumber?` • Ref ${c.referenceNumber}`:""}</div></td><td>${c.service}<div class="muted">${c.plan}${c.signupFee?` • Sign-up fee ${money(c.signupFee)}`:""}</div></td><td>${c.account||"—"}<div class="muted">${c.profile||""}</div></td><td>${money(c.amount)}</td><td>${c.due}</td><td>${c.expiry}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="icon-btn" onclick="editCustomer(${c.id})">Edit</button> <button class="icon-btn" onclick="markPaid(${c.id})">Paid</button> <button class="icon-btn" onclick="whatsApp(customers.find(x=>x.id===${c.id}))">Message</button></td></tr>`).join("")||`<tr><td colspan="9">No matching customers.</td></tr>`;
 }
 function renderAccounts(){document.getElementById("accountCards").innerHTML=accounts.map(a=>`<div class="account-card"><div class="account-top"><div><div class="name">${a.name}</div><div class="muted">${a.service}</div></div><span class="badge ${slug(a.status)}">${a.status}</span></div><div class="progress"><div style="width:${Math.min(100,a.used/a.slots*100)}%"></div></div><div class="kv"><div><small>Available slots</small><strong>${availableSlots(a)}</strong></div><div><small>Used slots</small><strong>${a.used}</strong></div><div><small>Provider cost</small><strong>${money(a.cost)}</strong></div><div><small>King Tech payment</small><strong>${a.providerDue}</strong></div><div><small>Account expiry</small><strong>${a.providerExpiry||"Not set"}</strong></div></div><div style="margin-top:14px"><div class="muted">Login</div><strong>${a.login}</strong><div class="muted" style="margin-top:7px">Password: •••••••••</div></div><div style="margin-top:14px"><button class="icon-btn" onclick="editAccount(${a.id})">Edit Account</button></div></div>`).join("")}
-function renderReminders(){const f=document.getElementById("reminderFilter")?.value||"";const r=customers.filter(c=>c.status!=="Active"&&(!f||c.status===f));document.getElementById("reminderRows").innerHTML=r.map(c=>`<tr><td><div class="name">${c.name}</div><div class="muted">Bill #${c.billNumber} • ${c.phone}</div></td><td>${c.service}</td><td>${c.due}</td><td>${money(c.amount)}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="primary" onclick="whatsApp(customers.find(x=>x.id===${c.id}))">Open WhatsApp</button></td></tr>`).join("")}
-function renderPayments(){const dueTotal=customers.filter(c=>c.status!=="Active").reduce((s,c)=>s+c.amount,0),received=payments.reduce((s,p)=>s+p.amount,0);document.getElementById("paymentSummary").innerHTML=[
+function renderReminders(){const f=document.getElementById("reminderFilter")?.value||"";const r=customers.filter(c=>isPayableCustomer(c)&&(!f||c.status===f)).sort((a,b)=>String(a.due||"").localeCompare(String(b.due||"")));document.getElementById("reminderRows").innerHTML=r.map(c=>`<tr><td><div class="name">${c.name}</div><div class="muted">Bill #${c.billNumber} • ${c.phone||"Phone not added"}</div></td><td>${c.service}</td><td>${c.due}</td><td>${money(c.amount)}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td>${c.phone?`<button class="primary" onclick="whatsApp(customers.find(x=>x.id===${c.id}))">Open WhatsApp</button>`:'<span class="muted">Add phone number</span>'}</td></tr>`).join("")||'<tr><td colspan="6">No reminders match this filter.</td></tr>'}
+function renderPayments(){const payable=customers.filter(isPayableCustomer),dueTotal=payable.reduce((s,c)=>s+Number(c.amount||0),0),received=payments.reduce((s,p)=>s+Number(p.amount||0),0);document.getElementById("paymentSummary").innerHTML=[
  [money(received),"Payments Recorded","Manual confirmations","payments",""],
  [money(dueTotal),"Outstanding","Current unpaid total","reminders","Overdue"],
  [payments.length,"Transactions","Recorded in this device","payments",""],
  [customers.filter(c=>c.status==="Did Not Renew").length,"Did Not Renew","Slots can be reassigned","customers","Did Not Renew"]
-].map(x=>`<div class="stat clickable-card" onclick="openSection('${x[3]}','${x[4]}')"><span>${x[1]}</span><strong>${x[0]}</strong><small>${x[2]}</small></div>`).join("");document.getElementById("paymentRows").innerHTML=customers.map(c=>`<tr><td>${c.name}<div class="muted">Bill #${c.billNumber}</div></td><td>${c.service}</td><td>${money(c.amount)}</td><td>${c.due}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="icon-btn" onclick="markPaid(${c.id})">Mark Paid</button></td></tr>`).join("")}
-function renderExpenses(){document.getElementById("expenseRows").innerHTML=expenses.map(x=>`<tr><td>${x.date}</td><td>${x.description}</td><td>${x.category}</td><td>${money(x.amount)}</td></tr>`).join("")}
-function renderReports(){const income=customers.filter(c=>c.status!=="Did Not Renew").reduce((s,c)=>s+c.amount,0)+payments.reduce((s,p)=>s+p.amount,0),exp=expenses.reduce((s,x)=>s+x.amount,0),profit=income-exp;document.getElementById("reportStats").innerHTML=[
+].map(x=>`<div class="stat clickable-card" onclick="openSection('${x[3]}','${x[4]}')"><span>${x[1]}</span><strong>${x[0]}</strong><small>${x[2]}</small></div>`).join("");document.getElementById("paymentRows").innerHTML=payable.sort((a,b)=>String(a.due||"").localeCompare(String(b.due||""))).map(c=>`<tr><td>${c.name}<div class="muted">Bill #${c.billNumber}</div></td><td>${c.service}</td><td>${money(c.amount)}</td><td>${c.due}</td><td><span class="badge ${slug(c.status)}">${c.status}</span></td><td><button class="icon-btn" onclick="markPaid(${c.id})">Mark Paid</button></td></tr>`).join("")||'<tr><td colspan="6">No outstanding customer payments.</td></tr>';const history=[...payments].sort((a,b)=>String(b.createdAt||b.date||"").localeCompare(String(a.createdAt||a.date||"")));document.getElementById("paymentHistoryRows").innerHTML=history.map(p=>`<tr><td>${p.date||""}</td><td>${p.customerName||"Unknown"}<div class="muted">${p.billNumber?`Bill #${p.billNumber}`:""}</div></td><td>${p.service||"—"}</td><td>${money(p.amount)}</td><td>${p.agent||"—"}</td><td><button class="icon-btn" onclick="removePayment(${p.id})">Remove</button></td></tr>`).join("")||'<tr><td colspan="6">No payments recorded yet.</td></tr>'}
+function renderExpenses(){document.getElementById("expenseRows").innerHTML=[...expenses].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).map(x=>`<tr><td>${x.date}</td><td>${x.description}</td><td>${x.category}</td><td>${money(x.amount)}</td><td><button class="icon-btn" onclick="removeExpense(${x.id})">Remove</button></td></tr>`).join("")||'<tr><td colspan="5">No expenses recorded yet.</td></tr>'}
+function renderReports(){const income=payments.reduce((s,p)=>s+Number(p.amount||0),0),exp=expenses.reduce((s,x)=>s+Number(x.amount||0),0),profit=income-exp;document.getElementById("reportStats").innerHTML=[
  [money(income),"Income","Customer revenue","payments"],
  [money(exp),"Expenses","Recorded spending","expenses"],
  [money(profit),"Estimated Profit","Income minus expenses","reports"],
  [customers.length,"Customers","All records","customers"]
-].map(x=>`<div class="stat clickable-card" onclick="openSection('${x[3]}')"><span>${x[1]}</span><strong>${x[0]}</strong><small>${x[2]}</small></div>`).join("");const services=[...new Set(customers.map(c=>c.service))];document.getElementById("profitByService").innerHTML=services.map(s=>{const v=customers.filter(c=>c.service===s&&c.status!=="Did Not Renew").reduce((a,c)=>a+c.amount,0);return `<div class="notice"><strong>${s}</strong><span>${money(v)}</span></div>`}).join("");document.getElementById("snapshot").innerHTML=`<div class="notice"><strong>Most customers</strong><span>Netflix</span></div><div class="notice"><strong>Available account slots</strong><span>${accounts.filter(a=>!["Expired","Inactive"].includes(a.status)).reduce((s,a)=>s+availableSlots(a),0)}</span></div><div class="notice"><strong>Upcoming provider payments</strong><span>${accounts.length}</span></div>`}
-function fillSelects(){const services=[...new Set(customers.map(c=>c.service))];const sf=document.getElementById("serviceFilter");if(sf){const current=sf.value;sf.innerHTML='<option value="">All services</option>'+services.map(s=>`<option>${s}</option>`).join('');sf.value=current}const ca=document.getElementById("customerAccount");if(ca){const current=ca.value;ca.innerHTML='<option value="">Not assigned</option>'+accounts.filter(a=>a.status!=="Expired"&&a.status!=="Inactive").map(a=>`<option value="${a.name}">${a.name} — ${availableSlots(a)} available</option>`).join('');ca.value=current}const pc=document.getElementById("paymentCustomer");if(pc)pc.innerHTML=customers.map(c=>`<option value="${c.id}">${c.name} — ${c.service}</option>`).join("")}
-document.getElementById("customerService").onchange=updateSubscriptionPlans;document.getElementById("customerPlan").onchange=updateSubscriptionPrice;
+].map(x=>`<div class="stat clickable-card" onclick="openSection('${x[3]}')"><span>${x[1]}</span><strong>${x[0]}</strong><small>${x[2]}</small></div>`).join("");const services=[...new Set([...customers.map(c=>c.service),...payments.map(p=>p.service)].filter(Boolean))];document.getElementById("profitByService").innerHTML=services.map(s=>{const v=payments.filter(p=>p.service===s).reduce((a,p)=>a+Number(p.amount||0),0);return `<div class="notice"><strong>${s}</strong><span>${money(v)} received</span></div>`}).join("")||'<div class="notice"><strong>No revenue recorded yet</strong></div>';const serviceCounts=customers.reduce((m,c)=>(m[c.service]=(m[c.service]||0)+1,m),{}),topService=Object.entries(serviceCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||"—",upcomingProviderPayments=accounts.filter(a=>{const days=daysFromToday(a.providerDue);return days!==null&&days>=0&&days<=30}).length;document.getElementById("snapshot").innerHTML=`<div class="notice"><strong>Most customers</strong><span>${topService}</span></div><div class="notice"><strong>Available account slots</strong><span>${accounts.filter(a=>!["Expired","Inactive"].includes(a.status)).reduce((s,a)=>s+availableSlots(a),0)}</span></div><div class="notice"><strong>Provider payments in next 30 days</strong><span>${upcomingProviderPayments}</span></div>`}
+function updateCustomerAccountOptions(selected=""){const ca=document.getElementById("customerAccount");if(!ca)return;const service=document.getElementById("customerService")?.value||"";const eligible=accounts.filter(a=>!["Expired","Inactive"].includes(a.status)&&(!service||a.service===service)&&(availableSlots(a)>0||a.name===selected));ca.innerHTML='<option value="">Not assigned</option>'+eligible.map(a=>`<option value="${a.name}">${a.name} — ${availableSlots(a)} available</option>`).join('');ca.value=eligible.some(a=>a.name===selected)?selected:""}
+function fillSelects(){const services=[...new Set(customers.map(c=>c.service))];const sf=document.getElementById("serviceFilter");if(sf){const current=sf.value;sf.innerHTML='<option value="">All services</option>'+services.map(s=>`<option>${s}</option>`).join('');sf.value=current}updateCustomerAccountOptions(document.getElementById("customerAccount")?.value||"");const pc=document.getElementById("paymentCustomer");if(pc)pc.innerHTML=customers.map(c=>`<option value="${c.id}">${c.name} — ${c.service}</option>`).join("")}
+document.getElementById("customerService").onchange=()=>{updateSubscriptionPlans();updateCustomerAccountOptions()};document.getElementById("customerPlan").onchange=updateSubscriptionPrice;
 document.getElementById("customerSearch").oninput=renderCustomers;document.getElementById("statusFilter").onchange=renderCustomers;document.getElementById("serviceFilter").onchange=renderCustomers;document.getElementById("reminderFilter").onchange=renderReminders;
 function editCustomer(id){
  const c=customers.find(x=>x.id===id);if(!c)return;
@@ -308,6 +316,7 @@ function editCustomer(id){
  updateSubscriptionPlans();
  form.plan.value=c.plan||"";
  form.amount.value=c.amount||0;
+ updateCustomerAccountOptions(c.account||"");
  document.getElementById("customerModal").classList.add("open");
 }
 function resetCustomerForm(){
@@ -316,7 +325,7 @@ function resetCustomerForm(){
  document.getElementById("customerSaveButton").textContent="Save Customer";
  fillSubscriptionServices();
 }
-document.getElementById("customerForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const editId=Number(f.editId||0);delete f.editId;const clean={...f,billNumber:String(f.billNumber),amount:+f.amount,signupFee:+(f.signupFee||0),profile:f.name};if(["Did Not Renew","Available","Expired"].includes(clean.status))clean.account="";if(editId){const i=customers.findIndex(x=>x.id===editId);if(i>=0)customers[i]={...customers[i],...clean};toast("Customer information updated")}else{customers.push({...clean,id:Date.now(),status:f.status||"Active"});toast("Customer added")}refreshAutomaticStatuses();e.target.closest(".modal").classList.remove("open");resetCustomerForm();save()};
+document.getElementById("customerForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const editId=Number(f.editId||0);delete f.editId;const existing=customers.find(x=>x.id===editId);if(f.account&&f.account!==existing?.account){const target=accounts.find(a=>a.name===f.account);if(!target||target.service!==f.service||availableSlots(target)<=0){toast("Choose an available account for this service");return}}const clean={...f,billNumber:String(f.billNumber),amount:+f.amount,signupFee:+(f.signupFee||0),profile:f.name};if(["Did Not Renew","Available","Expired"].includes(clean.status))clean.account="";if(editId){const i=customers.findIndex(x=>x.id===editId);if(i>=0)customers[i]={...customers[i],...clean};toast("Customer information updated")}else{customers.push({...clean,id:Date.now(),status:f.status||"Active"});toast("Customer added")}refreshAutomaticStatuses();e.target.closest(".modal").classList.remove("open");resetCustomerForm();save()};
 function editAccount(id){const a=accounts.find(x=>x.id===id);if(!a)return;const form=document.getElementById("accountForm");document.getElementById("accountModalTitle").textContent="Edit Subscription Account";document.getElementById("accountSaveButton").textContent="Save Changes";form.editId.value=String(a.id);["service","name","login","password","slots","providerDue","providerExpiry","cost","status"].forEach(k=>{if(form.elements[k])form.elements[k].value=a[k]??""});form.elements.used.value=a.manualUsed??a.used??0;form.elements.status.value=a.manualStatus??a.status??"Available";document.getElementById("accountModal").classList.add("open")}
 function resetAccountForm(){const form=document.getElementById("accountForm");form.reset();form.editId.value="";document.getElementById("accountModalTitle").textContent="Add Subscription Account";document.getElementById("accountSaveButton").textContent="Save Account"}
 document.getElementById("accountForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const editId=Number(f.editId||0);delete f.editId;const clean={...f,slots:+f.slots,manualUsed:+f.used,used:+f.used,cost:+f.cost,manualStatus:f.status};if(editId){const i=accounts.findIndex(x=>x.id===editId);if(i>=0){const oldName=accounts[i].name;accounts[i]={...accounts[i],...clean};if(oldName!==clean.name)customers.forEach(c=>{if(c.account===oldName)c.account=clean.name});toast("Subscription account updated")}}else{accounts.push({...clean,id:Date.now()});toast("Subscription account added")}refreshAutomaticStatuses();e.target.reset();e.target.closest(".modal").classList.remove("open");resetAccountForm();save()};
@@ -324,8 +333,9 @@ document.getElementById("paymentForm").onsubmit=e=>{e.preventDefault();const f=O
 document.getElementById("expenseForm").onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));expenses.unshift({...f,id:Date.now(),amount:+f.amount,agent:getAgentName(),createdAt:new Date().toISOString()});e.target.reset();e.target.closest(".modal").classList.remove("open");save();toast("Expense added")};
 document.getElementById("resetData").onclick=()=>{
   if(!confirm("Clear the local copy on this device only? The shared spreadsheet will not be deleted.")) return;
+  setSyncMode("local");
   customers=[]; accounts=[]; expenses=[]; payments=[];
-  save(); render();
+  saveLocalOnly(); render(); updateSyncUI("Local copy cleared — shared database was not changed");
 };
 document.querySelectorAll("[data-modal=\"customerModal\"]").forEach(b=>b.addEventListener("click",resetCustomerForm));
 ensureBillNumbers();
@@ -510,7 +520,7 @@ function bulkEligibleCustomers(){
   const duplicateMode=document.getElementById("bulkDuplicateMode")?.value||"skip";
   const today=todayKey();
   return customers.filter(c=>{
-    const payable=!["Did Not Renew","Available"].includes(c.status);
+    const payable=isPayableCustomer(c);
     const matchesStatus=!status||c.status===status;
     const matchesService=!service||c.service===service;
     const duplicateOk=duplicateMode==="allow"||bulkReminderLog[c.id]!==today;
