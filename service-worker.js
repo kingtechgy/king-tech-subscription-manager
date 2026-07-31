@@ -1,4 +1,4 @@
-const CACHE_NAME = 'king-tech-manager-v3.4-account-recovery';
+const CACHE_NAME = 'king-tech-manager-v3.5-balance-and-mobile';
 const ASSETS = [
   './',
   './index.html',

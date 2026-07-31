@@ -16,7 +16,7 @@ const app=initializeApp(firebaseConfig);
 const auth=getAuth(app);
 const db=initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
 const root=["businesses","king-tech"];
-const groups={customers:"customers",accounts:"accounts",payments:"payments",expenses:"expenses",deletedAccounts:"deletedAccounts",providerPayments:"providerPayments",reminderHistory:"reminderHistory"};
+const groups={customers:"customers",accounts:"accounts",payments:"payments",expenses:"expenses",deletedAccounts:"deletedAccounts",providerPayments:"providerPayments",balanceEntries:"balanceEntries",reminderHistory:"reminderHistory"};
 const remote=Object.fromEntries(Object.keys(groups).map(key=>[key,new Map()]));
 const loaded=new Set();
 let listenersStarted=false;
@@ -38,7 +38,7 @@ function mapValues(key){return [...remote[key].values()].map(cleanRecord)}
 function combinedSnapshot(){
   const reminderLog={};
   mapValues("reminderHistory").forEach(row=>{if(row.key||row.id)reminderLog[row.key||row.id]=row.sentAt||""});
-  return {customers:mapValues("customers"),accounts:mapValues("accounts"),payments:mapValues("payments"),expenses:mapValues("expenses"),deletedAccounts:mapValues("deletedAccounts"),providerPayments:mapValues("providerPayments"),reminderLog};
+  return {customers:mapValues("customers"),accounts:mapValues("accounts"),payments:mapValues("payments"),expenses:mapValues("expenses"),deletedAccounts:mapValues("deletedAccounts"),providerPayments:mapValues("providerPayments"),balanceEntries:mapValues("balanceEntries"),reminderLog};
 }
 function totalRemoteRecords(){return Object.values(remote).reduce((sum,map)=>sum+map.size,0)}
 function setStatus(message,live=true){
@@ -63,7 +63,7 @@ function startListeners(){
 function recordId(row,index){return String(row?.id??row?.key??`${Date.now()}-${index}`)}
 function desiredGroups(data){
   return {
-    customers:data.customers||[],accounts:data.accounts||[],payments:data.payments||[],expenses:data.expenses||[],deletedAccounts:data.deletedAccounts||[],providerPayments:data.providerPayments||[],reminderHistory:data.reminderHistory||[]
+    customers:data.customers||[],accounts:data.accounts||[],payments:data.payments||[],expenses:data.expenses||[],deletedAccounts:data.deletedAccounts||[],providerPayments:data.providerPayments||[],balanceEntries:data.balanceEntries||[],reminderHistory:data.reminderHistory||[]
   };
 }
 function comparable(value){const copy=cleanRecord(value);return JSON.stringify(copy,Object.keys(copy).sort())}
