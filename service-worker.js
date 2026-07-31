@@ -1,4 +1,4 @@
-const CACHE_NAME = 'king-tech-manager-v2.7.1-settings-fix';
+const CACHE_NAME = 'king-tech-manager-v2.7.2-synced-dates';
 const ASSETS = [
   './',
   './index.html',
