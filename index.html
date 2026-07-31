@@ -354,6 +354,11 @@ function refreshAutomaticStatuses(){
   accounts.forEach(a=>a.status=calculatedAccountStatus(a));
 }
 
+const LIVE_SHEET_ID="1-SFws64HGIkEvK3vZCmNekilftCtpy4WdE6AKSDdKWU";
+const DEFAULT_SYNC_URL="https://script.google.com/macros/s/AKfycbxZk5m3wTJsWv5ER3JdJIf3AoZqjirVs_T1GSBrZxM8mlIgRs_VxD5Ya7wFgbza4gjJ/exec";
+const SYNC_INTERVAL=20000;
+let syncBusy=false, lastSharedHash="";
+
 let syncSaveTimer=null;
 function saveLocalOnly(){
   localStorage.setItem("kt_customers",JSON.stringify(customers));
@@ -566,10 +571,7 @@ fillSubscriptionServices();
 render();
 
 
-const LIVE_SHEET_ID="1-SFws64HGIkEvK3vZCmNekilftCtpy4WdE6AKSDdKWU";
-const DEFAULT_SYNC_URL="https://script.google.com/macros/s/AKfycbxZk5m3wTJsWv5ER3JdJIf3AoZqjirVs_T1GSBrZxM8mlIgRs_VxD5Ya7wFgbza4gjJ/exec";
-const SYNC_INTERVAL=20000;
-let syncBusy=false, lastSharedHash="";
+
 function getAgentName(){return localStorage.getItem("kt_agent_name")||"King Tech Agent"}
 function saveAgentName(){const v=document.getElementById("agentNameInput").value.trim();if(v){localStorage.setItem("kt_agent_name",v);toast("Agent name saved")}updateSyncUI()}
 function getSyncUrl(){return (localStorage.getItem("kt_sync_url")||DEFAULT_SYNC_URL||"").trim()}
@@ -585,8 +587,9 @@ function updateSyncUI(message){
   if(input&&!input.value)input.value=url;if(agent&&!agent.value)agent.value=getAgentName();
   if(!badge||!text)return;
   if(message){text.textContent=message;return}
-  badge.textContent=url?"Connected":"Local";badge.className="badge "+(url?"active":"due-soon");
-  text.textContent=url?(localStorage.getItem("kt_migration_complete")==="yes"?"Shared sync enabled — automatic refresh every 20 seconds":"Ready to migrate this device — open Settings and tap Connect & Migrate"):"Local mode — deploy Code.gs, then paste its Web App URL";
+  const migrated=localStorage.getItem("kt_migration_complete")==="yes";
+  badge.textContent=url?(migrated?"Connected":"Not migrated"):"Local";badge.className="badge "+(url&&migrated?"active":"due-soon");
+  text.textContent=url?(migrated?"Shared sync enabled — automatic refresh every 20 seconds":"Ready to migrate this device — tap Connect & Migrate"):"Local mode — paste the Apps Script Web App URL";
 }
 async function apiRequest(action,payload={}){
   const url=getSyncUrl();if(!url)throw new Error("Sync URL is not configured");
@@ -598,12 +601,13 @@ async function connectSharedSync(){
   if(!/^https:\/\/script\.google\.com\//.test(url)){toast("Paste the Apps Script Web App URL");return}
   localStorage.setItem("kt_sync_url",url);updateSyncUI("Testing connection…");
   try{await apiRequest("ping",{sheetId:LIVE_SHEET_ID});await migrateExistingData();updateSyncUI("Connected — existing device data uploaded safely");toast("Shared sync connected")}
-  catch(e){updateSyncUI("Connection failed: "+e.message);toast("Could not connect")}
+  catch(e){console.error("Shared sync connection failed",e);updateSyncUI("Connection failed: "+e.message);toast("Could not connect: "+e.message)}
 }
 async function migrateExistingData(){
   if(localStorage.getItem("kt_migration_complete")==="yes"){await pullSharedData(true);return}
-  exportBackup(true);
-  const result=await apiRequest("migrate",{data:syncPayload()});
+  const migrationBackup={app:"King Tech Subscription Manager",version:"2.1",exportedAt:new Date().toISOString(),deviceId:deviceId(),agent:getAgentName(),data:syncPayload()};
+  localStorage.setItem("kt_pre_migration_backup",JSON.stringify(migrationBackup));
+  const result=await apiRequest("migrate",{data:migrationBackup.data});
   localStorage.setItem("kt_migration_complete","yes");localStorage.setItem("kt_last_migration",new Date().toISOString());
   await pullSharedData(false);return result;
 }
@@ -630,7 +634,8 @@ async function pullSharedData(showToast=false){
 }
 function exportBackup(silent=false){
   const backup={app:"King Tech Subscription Manager",version:"2.0",exportedAt:new Date().toISOString(),deviceId:deviceId(),agent:getAgentName(),data:syncPayload()};
-  const blob=new Blob([JSON.stringify(backup,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`king-tech-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);if(!silent)toast("Backup exported")
+  const blob=new Blob([JSON.stringify(backup,null,2)],{type:"application/json"});
+  const objectUrl=URL.createObjectURL(blob);const a=document.createElement("a");a.href=objectUrl;a.download=`king-tech-backup-${new Date().toISOString().slice(0,10)}.json`;a.style.display="none";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(objectUrl),3000);if(!silent)toast("Backup exported")
 }
 async function importBackup(){
   const file=document.getElementById("backupFile").files[0];if(!file){toast("Choose a backup file");return}
