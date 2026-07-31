@@ -1,6 +1,6 @@
 
 
-const APP_DATA_VERSION = "shared-sync-v2";
+const APP_DATA_VERSION = "shared-sync-v2.6";
 // Never clear existing records during an update. Keep a one-time safety copy first.
 if(!localStorage.getItem("kt_pre_v2_backup")){
   const safety={
@@ -406,7 +406,7 @@ async function migrateExistingData(){
   const counts=localCounts();
   if(counts.customers===0&&counts.accounts===0)throw new Error("No local records found to migrate");
   const migrationToken="mig-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10);
-  const migrationBackup={app:"King Tech Subscription Manager",version:"2.4-safe",exportedAt:new Date().toISOString(),migrationToken,deviceId:deviceId(),agent:getAgentName(),data:syncPayload()};
+  const migrationBackup={app:"King Tech Subscription Manager",version:"2.6-stable-migration",exportedAt:new Date().toISOString(),migrationToken,deviceId:deviceId(),agent:getAgentName(),data:syncPayload()};
   localStorage.setItem("kt_pre_migration_backup",JSON.stringify(migrationBackup));
   makeCheckpoint("Before first migration");
   updateSyncUI(`Uploading protected copy (${counts.customers} customers)…`);
@@ -440,11 +440,12 @@ async function joinSharedDatabase(){
     const remoteCounts={customers:Array.isArray(d.customers)?d.customers.length:0,accounts:Array.isArray(d.accounts)?d.accounts.length:0,payments:Array.isArray(d.payments)?d.payments.length:0,expenses:Array.isArray(d.expenses)?d.expenses.length:0};
     if(remoteCounts.customers===0)throw new Error("The shared customer list is empty");
     const local=localCounts();
-    if((local.customers||local.accounts||local.payments||local.expenses)&&!confirm(`This device has ${local.customers} customers and ${local.accounts} accounts. Replace its local copy with the shared database containing ${remoteCounts.customers} customers and ${remoteCounts.accounts} accounts? A checkpoint will be saved first.`)){
+    const localTotal=local.customers+local.accounts+local.payments+local.expenses;
+    if(localTotal>0&&!confirm(`This device currently has ${local.customers} customers, ${local.accounts} accounts, ${local.payments} payments and ${local.expenses} expenses. Replace only this device's local copy with the shared database containing ${remoteCounts.customers} customers and ${remoteCounts.accounts} accounts? A recovery checkpoint will be saved first.`)){
       updateSyncUI("Join cancelled — local data was not changed");return;
     }
     makeCheckpoint("Before joining shared database");
-    localStorage.setItem("kt_pre_join_backup",JSON.stringify({app:"King Tech Subscription Manager",version:"2.5-join",exportedAt:new Date().toISOString(),data:syncPayload()}));
+    localStorage.setItem("kt_pre_join_backup",JSON.stringify({app:"King Tech Subscription Manager",version:"2.6-stable-join",exportedAt:new Date().toISOString(),data:syncPayload()}));
     customers=d.customers||[];accounts=d.accounts||[];payments=d.payments||[];expenses=d.expenses||[];
     if(d.reminderLog&&typeof d.reminderLog==="object")bulkReminderLog=d.reminderLog;
     refreshAutomaticStatuses();saveLocalOnly();render();

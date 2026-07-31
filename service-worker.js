@@ -1,4 +1,4 @@
-const CACHE_NAME = 'king-tech-manager-v2.5.1-join-fix';
+const CACHE_NAME = 'king-tech-manager-v2.6-stable-sync';
 const ASSETS = [
   './',
   './index.html',
