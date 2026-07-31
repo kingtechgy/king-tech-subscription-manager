@@ -5,18 +5,31 @@
 const SPREADSHEET_ID = "1-SFws64HGIkEvK3vZCmNekilftCtpy4WdE6AKSDdKWU";
 const SHEETS = {customers:"Customers",accounts:"Subscription Accounts",payments:"Customer Payments",expenses:"Expenses",reminders:"Reminder History",activity:"Activity Log",migration:"Migration Log"};
 
-function doGet(){return json_({ok:true,service:"King Tech Subscription Manager API",version:"2.0"})}
+function doGet(e){
+  try{
+    const p=(e&&e.parameter)||{};
+    let out;
+    if(p.action==="ping"||!p.action) out={ok:true,service:"King Tech Subscription Manager API",version:"2.3",spreadsheetId:SPREADSHEET_ID};
+    else if(p.action==="getSnapshot") out={ok:true,data:readSnapshot_(),hash:String(Date.now())};
+    else throw new Error("Unknown action");
+    return output_(out,p.callback);
+  }catch(err){return output_({ok:false,error:String(err&&err.message||err)},(e&&e.parameter&&e.parameter.callback)||"")}
+}
 function doPost(e){
   try{
     const body=JSON.parse((e.postData&&e.postData.contents)||"{}");
-    if(body.action==="ping") return json_({ok:true,version:"2.0",spreadsheetId:SPREADSHEET_ID});
+    if(body.action==="ping") return json_({ok:true,version:"2.3",spreadsheetId:SPREADSHEET_ID});
     if(body.action==="getSnapshot") return json_({ok:true,data:readSnapshot_(),hash:String(Date.now())});
     if(body.action==="saveSnapshot"){writeSnapshot_(body.data||{},false);return json_({ok:true,hash:String(Date.now())})}
     if(body.action==="migrate"){writeSnapshot_(body.data||{},true);return json_({ok:true,migrated:true,hash:String(Date.now())})}
     throw new Error("Unknown action");
   }catch(err){return json_({ok:false,error:String(err&&err.message||err)})}
 }
-function json_(obj){return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON)}
+function output_(obj,callback){
+  const text=callback ? `${callback}(${JSON.stringify(obj)})` : JSON.stringify(obj);
+  return ContentService.createTextOutput(text).setMimeType(callback?ContentService.MimeType.JAVASCRIPT:ContentService.MimeType.JSON);
+}
+function json_(obj){return output_(obj,"")}
 function ss_(){return SpreadsheetApp.openById(SPREADSHEET_ID)}
 function rowsToObjects_(sheetName){const sh=ss_().getSheetByName(sheetName);if(!sh||sh.getLastRow()<2)return[];const values=sh.getDataRange().getValues();const h=values.shift().map(String);return values.filter(r=>r.some(v=>v!=="" )).map(r=>Object.fromEntries(h.map((k,i)=>[k,parse_(r[i])]))).filter(o=>!o.deleted)}
 function parse_(v){if(typeof v!=="string")return v;if(v==="true")return true;if(v==="false")return false;if(/^[-]?\d+(\.\d+)?$/.test(v)&&v.length<16)return Number(v);if((v.startsWith("{")&&v.endsWith("}"))||(v.startsWith("[")&&v.endsWith("]"))){try{return JSON.parse(v)}catch(_){}}return v}

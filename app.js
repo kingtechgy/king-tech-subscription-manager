@@ -1,11 +1,6 @@
-// Live sync configuration is declared first to prevent startup initialization errors.
-var LIVE_SHEET_ID = "1-SFws64HGIkEvK3vZCmNekilftCtpy4WdE6AKSDdKWU";
-var DEFAULT_SYNC_URL = "https://script.google.com/macros/s/AKfycbxZk5m3wTJsWv5ER3JdJIf3AoZqjirVs_T1GSBrZxM8mlIgRs_VxD5Ya7wFgbza4gjJ/exec";
-var SYNC_INTERVAL = 20000;
 
 
-
-const APP_DATA_VERSION = "shared-sync-v2.2";
+const APP_DATA_VERSION = "shared-sync-v2";
 // Never clear existing records during an update. Keep a one-time safety copy first.
 if(!localStorage.getItem("kt_pre_v2_backup")){
   const safety={
@@ -120,6 +115,9 @@ function refreshAutomaticStatuses(){
   accounts.forEach(a=>a.status=calculatedAccountStatus(a));
 }
 
+const LIVE_SHEET_ID="1-SFws64HGIkEvK3vZCmNekilftCtpy4WdE6AKSDdKWU";
+const DEFAULT_SYNC_URL="https://script.google.com/macros/s/AKfycbxZk5m3wTJsWv5ER3JdJIf3AoZqjirVs_T1GSBrZxM8mlIgRs_VxD5Ya7wFgbza4gjJ/exec";
+const SYNC_INTERVAL=20000;
 let syncBusy=false, lastSharedHash="";
 
 let syncSaveTimer=null;
@@ -352,36 +350,54 @@ function updateSyncUI(message){
   badge.textContent=url?"Connected":"Local";badge.className="badge "+(url?"active":"due-soon");
   text.textContent=url?"Shared sync enabled — automatic refresh every 20 seconds":"Local mode — deploy Code.gs, then paste its Web App URL";
 }
-async function apiRequest(action,payload={}){
+function apiJsonp(action,payload={}){
+  const base=getSyncUrl();if(!base)return Promise.reject(new Error("Sync URL is not configured"));
+  return new Promise((resolve,reject)=>{
+    const callback="ktSyncCb_"+Date.now()+"_"+Math.random().toString(36).slice(2);
+    const timer=setTimeout(()=>{cleanup();reject(new Error("Connection timed out"))},20000);
+    const script=document.createElement("script");
+    function cleanup(){clearTimeout(timer);delete window[callback];script.remove()}
+    window[callback]=(result)=>{cleanup();if(!result||!result.ok)reject(new Error(result?.error||"Sync request failed"));else resolve(result)};
+    const params=new URLSearchParams({action,callback,...Object.fromEntries(Object.entries(payload).map(([k,v])=>[k,typeof v==="string"?v:JSON.stringify(v)]))});
+    script.src=base+(base.includes("?")?"&":"?")+params.toString();
+    script.onerror=()=>{cleanup();reject(new Error("Could not reach Apps Script"))};
+    document.head.appendChild(script);
+  });
+}
+async function apiWrite(action,payload={}){
   const url=getSyncUrl();if(!url)throw new Error("Sync URL is not configured");
-  const response=await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action,...payload})});
-  const result=await response.json();if(!result.ok)throw new Error(result.error||"Sync request failed");return result;
+  await fetch(url,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action,...payload})});
+  return {ok:true,queued:true};
 }
 async function connectSharedSync(){
   const input=document.getElementById("syncUrlInput");const url=input.value.trim();
   if(!/^https:\/\/script\.google\.com\//.test(url)){toast("Paste the Apps Script Web App URL");return}
   localStorage.setItem("kt_sync_url",url);updateSyncUI("Testing connection…");
-  try{await apiRequest("ping",{sheetId:LIVE_SHEET_ID});await migrateExistingData();updateSyncUI("Connected — existing device data uploaded safely");toast("Shared sync connected")}
+  try{await apiJsonp("ping",{sheetId:LIVE_SHEET_ID});await migrateExistingData();updateSyncUI("Connected — existing device data uploaded safely");toast("Shared sync connected")}
   catch(e){console.error("Shared sync connection failed",e);updateSyncUI("Connection failed: "+e.message);toast("Could not connect: "+e.message)}
 }
 async function migrateExistingData(){
   if(localStorage.getItem("kt_migration_complete")==="yes"){await pullSharedData(true);return}
   const migrationBackup={app:"King Tech Subscription Manager",version:"2.1",exportedAt:new Date().toISOString(),deviceId:deviceId(),agent:getAgentName(),data:syncPayload()};
   localStorage.setItem("kt_pre_migration_backup",JSON.stringify(migrationBackup));
-  const result=await apiRequest("migrate",{data:migrationBackup.data});
+  await apiWrite("migrate",{data:migrationBackup.data});
+  await new Promise(r=>setTimeout(r,2500));
+  const verify=await apiJsonp("getSnapshot",{sheetId:LIVE_SHEET_ID});
+  const remoteCount=(verify.data&&Array.isArray(verify.data.customers))?verify.data.customers.length:0;
+  if(remoteCount < Math.max(1, customers.length)) throw new Error(`Upload could not be verified (${remoteCount}/${customers.length} customers)`);
   localStorage.setItem("kt_migration_complete","yes");localStorage.setItem("kt_last_migration",new Date().toISOString());
-  await pullSharedData(false);return result;
+  await pullSharedData(false);return verify;
 }
 async function pushSharedData(){
   if(syncBusy||!getSyncUrl())return;syncBusy=true;
-  try{updateSyncUI("Uploading changes…");const result=await apiRequest("saveSnapshot",{data:syncPayload()});lastSharedHash=result.hash||"";updateSyncUI("Synced "+new Date().toLocaleTimeString())}
+  try{updateSyncUI("Uploading changes…");await apiWrite("saveSnapshot",{data:syncPayload()});lastSharedHash=String(Date.now());updateSyncUI("Synced "+new Date().toLocaleTimeString())}
   catch(e){updateSyncUI("Offline/local copy saved — sync will retry")}
   finally{syncBusy=false}
 }
 async function pullSharedData(showToast=false){
   if(syncBusy||!getSyncUrl())return;syncBusy=true;
   try{
-    updateSyncUI("Checking for updates…");const result=await apiRequest("getSnapshot",{sheetId:LIVE_SHEET_ID});
+    updateSyncUI("Checking for updates…");const result=await apiJsonp("getSnapshot",{sheetId:LIVE_SHEET_ID});
     const d=result.data||{};
     if(Array.isArray(d.customers))customers=d.customers;
     if(Array.isArray(d.accounts))accounts=d.accounts;
