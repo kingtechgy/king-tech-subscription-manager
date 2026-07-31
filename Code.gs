@@ -9,7 +9,7 @@ function doGet(e){
   try{
     const p=(e&&e.parameter)||{};
     let out;
-    if(p.action==="ping"||!p.action) out={ok:true,service:"King Tech Subscription Manager API",version:"2.3",spreadsheetId:SPREADSHEET_ID};
+    if(p.action==="ping"||!p.action) out={ok:true,service:"King Tech Subscription Manager API",version:"2.5",spreadsheetId:SPREADSHEET_ID};
     else if(p.action==="getSnapshot") out={ok:true,data:readSnapshot_(),hash:String(Date.now())};
     else if(p.action==="getMigrationStatus") out=migrationStatus_(String(p.token||""));
     else throw new Error("Unknown action");
@@ -19,7 +19,7 @@ function doGet(e){
 function doPost(e){
   try{
     const body=JSON.parse((e.postData&&e.postData.contents)||"{}");
-    if(body.action==="ping") return json_({ok:true,version:"2.3",spreadsheetId:SPREADSHEET_ID});
+    if(body.action==="ping") return json_({ok:true,version:"2.5",spreadsheetId:SPREADSHEET_ID});
     if(body.action==="getSnapshot") return json_({ok:true,data:readSnapshot_(),hash:String(Date.now())});
     if(body.action==="saveSnapshot"){writeSnapshot_(body.data||{},false);return json_({ok:true,hash:String(Date.now())})}
     if(body.action==="migrate"){writeSnapshot_(body.data||{},true,String(body.token||""));return json_({ok:true,migrated:true,hash:String(Date.now())})}

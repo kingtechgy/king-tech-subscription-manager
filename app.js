@@ -131,7 +131,7 @@ function saveLocalOnly(){
 const save=()=>{
   refreshAutomaticStatuses(); saveLocalOnly(); render();
   clearTimeout(syncSaveTimer);
-  if(localStorage.getItem("kt_migration_complete")==="yes"){
+  if(sharedReady()){
     syncSaveTimer=setTimeout(()=>pushSharedData().catch(()=>{}),700);
   }
 };
@@ -338,22 +338,28 @@ function getAgentName(){return localStorage.getItem("kt_agent_name")||"King Tech
 function saveAgentName(){const v=document.getElementById("agentNameInput").value.trim();if(v){localStorage.setItem("kt_agent_name",v);toast("Agent name saved")}updateSyncUI()}
 function getSyncUrl(){return (localStorage.getItem("kt_sync_url")||DEFAULT_SYNC_URL||"").trim()}
 function deviceId(){let id=localStorage.getItem("kt_device_id");if(!id){id="device-"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);localStorage.setItem("kt_device_id",id)}return id}
+function syncMode(){return localStorage.getItem("kt_sync_mode")||(localStorage.getItem("kt_migration_complete")==="yes"?"migrated":"local")}
+function sharedReady(){return ["migrated","joined"].includes(syncMode())}
+function setSyncMode(mode){localStorage.setItem("kt_sync_mode",mode);if(["migrated","joined"].includes(mode))localStorage.setItem("kt_migration_complete","yes");else localStorage.removeItem("kt_migration_complete")}
+
 function syncPayload(){
   refreshAutomaticStatuses();
   return {schemaVersion:"2.0",sheetId:LIVE_SHEET_ID,deviceId:deviceId(),agent:getAgentName(),updatedAt:new Date().toISOString(),customers,accounts,payments,expenses,reminderHistory:Object.entries(bulkReminderLog||{}).map(([key,sentAt])=>({id:key,key,sentAt}))};
 }
 function hashData(data){try{return JSON.stringify(data).length+":"+(data.updatedAt||"")}catch{return String(Date.now())}}
 function updateSyncUI(message){
-  const url=getSyncUrl(), migrated=localStorage.getItem("kt_migration_complete")==="yes";
+  const url=getSyncUrl(), mode=syncMode();
   const badge=document.getElementById("syncStatusBadge"), text=document.getElementById("syncStatusText");
   const input=document.getElementById("syncUrlInput"), agent=document.getElementById("agentNameInput");
   if(input&&!input.value)input.value=url;if(agent&&!agent.value)agent.value=getAgentName();
   if(!badge||!text)return;
-  badge.textContent=migrated?"Migrated":(url?"Not migrated":"Local");
-  badge.className="badge "+(migrated?"active":"due-soon");
+  const labels={migrated:"Migrated",joined:"Joined",local:url?"Not connected":"Local"};
+  badge.textContent=labels[mode]||"Local";
+  badge.className="badge "+(sharedReady()?"active":"due-soon");
   if(message){text.textContent=message;return}
-  text.textContent=migrated?"Shared sync enabled — automatic refresh every 20 seconds":
-    (url?"Connection saved — local records are protected until migration is verified":"Local mode — paste the Apps Script Web App URL to begin");
+  if(mode==="migrated")text.textContent="Original device connected — changes sync automatically every 20 seconds";
+  else if(mode==="joined")text.textContent="Agent device joined — shared records refresh automatically every 20 seconds";
+  else text.textContent=url?"Choose Migrate This Device or Join Shared Database":"Local mode — paste the Apps Script Web App URL to begin";
 }
 function apiJsonp(action,payload={}){
   const base=getSyncUrl();if(!base)return Promise.reject(new Error("Sync URL is not configured"));
@@ -396,7 +402,7 @@ async function connectSharedSync(){
   }
 }
 async function migrateExistingData(){
-  if(localStorage.getItem("kt_migration_complete")==="yes"){updateSyncUI("This device is already migrated");return}
+  if(syncMode()==="migrated"){updateSyncUI("This device is already migrated");return}
   const counts=localCounts();
   if(counts.customers===0&&counts.accounts===0)throw new Error("No local records found to migrate");
   const migrationToken="mig-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10);
@@ -416,21 +422,45 @@ async function migrateExistingData(){
   const verify=await apiJsonp("getSnapshot",{sheetId:LIVE_SHEET_ID});
   const remote={customers:verify.data?.customers?.length||0,accounts:verify.data?.accounts?.length||0,payments:verify.data?.payments?.length||0,expenses:verify.data?.expenses?.length||0};
   if(!sameCounts(counts,remote))throw new Error(`Final verification failed. Device: ${JSON.stringify(counts)}; Sheet: ${JSON.stringify(remote)}`);
-  localStorage.setItem("kt_migration_complete","yes");
+  setSyncMode("migrated");
   localStorage.setItem("kt_last_migration",new Date().toISOString());
   localStorage.setItem("kt_last_verified_counts",JSON.stringify(counts));
   // Deliberately do not pull after migration. The device copy remains unchanged.
   return verify;
 }
+async function joinSharedDatabase(){
+  const input=document.getElementById("syncUrlInput");const url=(input?.value||"").trim();
+  if(!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/.test(url)){toast("Paste the full Apps Script URL ending in /exec");return}
+  localStorage.setItem("kt_sync_url",url);
+  updateSyncUI("Checking the shared database — this device will not upload anything…");
+  try{
+    await apiJsonp("ping",{sheetId:LIVE_SHEET_ID});
+    const result=await apiJsonp("getSnapshot",{sheetId:LIVE_SHEET_ID});
+    const d=result.data||{};
+    const remoteCounts={customers:Array.isArray(d.customers)?d.customers.length:0,accounts:Array.isArray(d.accounts)?d.accounts.length:0,payments:Array.isArray(d.payments)?d.payments.length:0,expenses:Array.isArray(d.expenses)?d.expenses.length:0};
+    if(remoteCounts.customers===0)throw new Error("The shared customer list is empty");
+    const local=localCounts();
+    if((local.customers||local.accounts||local.payments||local.expenses)&&!confirm(`This device has ${local.customers} customers and ${local.accounts} accounts. Replace its local copy with the shared database containing ${remoteCounts.customers} customers and ${remoteCounts.accounts} accounts? A checkpoint will be saved first.`)){
+      updateSyncUI("Join cancelled — local data was not changed");return;
+    }
+    makeCheckpoint("Before joining shared database");
+    localStorage.setItem("kt_pre_join_backup",JSON.stringify({app:"King Tech Subscription Manager",version:"2.5-join",exportedAt:new Date().toISOString(),data:syncPayload()}));
+    customers=d.customers||[];accounts=d.accounts||[];payments=d.payments||[];expenses=d.expenses||[];
+    if(d.reminderLog&&typeof d.reminderLog==="object")bulkReminderLog=d.reminderLog;
+    refreshAutomaticStatuses();saveLocalOnly();render();
+    setSyncMode("joined");localStorage.setItem("kt_last_join",new Date().toISOString());
+    updateSyncUI(`Joined successfully — ${remoteCounts.customers} customers loaded`);toast("Shared database joined");
+  }catch(e){console.error("Join failed",e);setSyncMode("local");updateSyncUI("Join stopped safely: "+e.message);toast("Could not join — local copy kept")}
+}
 async function pushSharedData(){
-  if(syncBusy||!getSyncUrl()||localStorage.getItem("kt_migration_complete")!=="yes")return;
+  if(syncBusy||!getSyncUrl()||!sharedReady())return;
   syncBusy=true;
   try{updateSyncUI("Uploading changes…");await apiWrite("saveSnapshot",{data:syncPayload()});lastSharedHash=String(Date.now());updateSyncUI("Synced "+new Date().toLocaleTimeString())}
   catch(e){updateSyncUI("Offline/local copy saved — sync will retry")}
   finally{syncBusy=false}
 }
 async function pullSharedData(showToast=false){
-  if(syncBusy||!getSyncUrl()||localStorage.getItem("kt_migration_complete")!=="yes")return;
+  if(syncBusy||!getSyncUrl()||!sharedReady())return;
   syncBusy=true;
   try{
     updateSyncUI("Checking for updates…");const result=await apiJsonp("getSnapshot",{sheetId:LIVE_SHEET_ID});
@@ -464,10 +494,10 @@ async function importBackup(){
     if(d.reminderLog)bulkReminderLog=d.reminderLog;refreshAutomaticStatuses();save();toast("Backup imported")
   }catch(e){toast("Backup file could not be imported")}
 }
-window.addEventListener("online",()=>{updateSyncUI("Internet restored");if(localStorage.getItem("kt_migration_complete")==="yes")pushSharedData()});
+window.addEventListener("online",()=>{updateSyncUI("Internet restored");if(sharedReady())pushSharedData()});
 window.addEventListener("offline",()=>updateSyncUI("Offline — changes are saved on this device"));
-setInterval(()=>{if(getSyncUrl()&&navigator.onLine&&localStorage.getItem("kt_migration_complete")==="yes")pullSharedData(false)},SYNC_INTERVAL);
-setTimeout(()=>{updateSyncUI();if(getSyncUrl()&&navigator.onLine&&localStorage.getItem("kt_migration_complete")==="yes")pullSharedData(false)},800);
+setInterval(()=>{if(getSyncUrl()&&navigator.onLine&&sharedReady())pullSharedData(false)},SYNC_INTERVAL);
+setTimeout(()=>{updateSyncUI();if(getSyncUrl()&&navigator.onLine&&sharedReady())pullSharedData(false)},800);
 
 function todayKey(){
   const d=new Date();

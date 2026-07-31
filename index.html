@@ -100,8 +100,10 @@ button,input,select{font:inherit} button{cursor:pointer}
       <div class="notice"><div><strong>Live Google Spreadsheet</strong><small>King Tech Subscription Manager LIVE Database</small></div><button class="secondary" onclick="window.open('https://docs.google.com/spreadsheets/d/1-SFws64HGIkEvK3vZCmNekilftCtpy4WdE6AKSDdKWU/edit','_blank')">Open Sheet</button></div>
       <div class="notice"><div><strong>Sync status</strong><small id="syncStatusText">Local mode — setup URL required</small></div><span class="badge" id="syncStatusBadge">Local</span></div>
       <div class="notice"><div><strong>Agent name</strong><small>Changes and payments will be labeled with this name.</small></div><input id="agentNameInput" placeholder="Example: Main Office" style="max-width:220px"><button class="secondary" onclick="saveAgentName()">Save</button></div>
-      <div class="notice"><div><strong>Apps Script Web App URL</strong><small>Paste the deployment URL once the included Code.gs is deployed.</small></div><input id="syncUrlInput" placeholder="https://script.google.com/macros/s/.../exec" style="min-width:280px;max-width:520px"><button class="primary" onclick="connectSharedSync()">Connect & Migrate</button></div>
-      <div class="notice"><div><strong>Refresh shared records</strong><small>Download the newest list now. Automatic refresh runs every 20 seconds.</small></div><button class="secondary" onclick="pullSharedData(true)">Sync Now</button></div>
+      <div class="notice"><div><strong>Apps Script Web App URL</strong><small>Use the same deployment URL on every approved agent device.</small></div><input id="syncUrlInput" placeholder="https://script.google.com/macros/s/.../exec" style="min-width:280px;max-width:520px"></div>
+      <div class="notice"><div><strong>Migrate This Device</strong><small>Use once on the original device that already holds the full customer list. Uploads and verifies before enabling sync.</small></div><button class="primary" onclick="connectSharedSync()">Migrate This Device</button></div>
+      <div class="notice"><div><strong>Join Shared Database</strong><small>Use on every additional phone or computer. Downloads the existing shared records and never uploads a blank device.</small></div><button class="secondary" onclick="joinSharedDatabase()">Join Shared Database</button></div>
+      <div class="notice"><div><strong>Refresh shared records</strong><small>Download the newest list now. Automatic refresh runs every 20 seconds after migration or joining.</small></div><button class="secondary" onclick="pullSharedData(true)">Sync Now</button></div>
       <div class="notice"><div><strong>Export Backup</strong><small>Download customers, accounts, payments, expenses and reminder history.</small></div><button class="secondary" onclick="exportBackup()">Export JSON</button></div>
       <div class="notice"><div><strong>Import Backup</strong><small>Restore a King Tech backup file without clearing it first.</small></div><input type="file" id="backupFile" accept="application/json" style="max-width:250px"><button class="secondary" onclick="importBackup()">Import</button></div>
       <div class="notice"><div><strong>Clear This Device Only</strong><small>This does not delete the shared spreadsheet. Export a backup first.</small></div><button class="danger" id="resetData">Reset Device</button></div>
@@ -370,7 +372,7 @@ function saveLocalOnly(){
 const save=()=>{
   refreshAutomaticStatuses(); saveLocalOnly(); render();
   clearTimeout(syncSaveTimer);
-  if(localStorage.getItem("kt_migration_complete")==="yes") syncSaveTimer=setTimeout(()=>pushSharedData().catch(()=>{}),700);
+  if(sharedReady()) syncSaveTimer=setTimeout(()=>pushSharedData().catch(()=>{}),700);
 };
 function generateBillNumber(){
  const used=new Set(customers.map(c=>String(c.billNumber||"")));
@@ -576,20 +578,28 @@ function getAgentName(){return localStorage.getItem("kt_agent_name")||"King Tech
 function saveAgentName(){const v=document.getElementById("agentNameInput").value.trim();if(v){localStorage.setItem("kt_agent_name",v);toast("Agent name saved")}updateSyncUI()}
 function getSyncUrl(){return (localStorage.getItem("kt_sync_url")||DEFAULT_SYNC_URL||"").trim()}
 function deviceId(){let id=localStorage.getItem("kt_device_id");if(!id){id="device-"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);localStorage.setItem("kt_device_id",id)}return id}
+function syncMode(){return localStorage.getItem("kt_sync_mode")||(localStorage.getItem("kt_migration_complete")==="yes"?"migrated":"local")}
+function sharedReady(){return ["migrated","joined"].includes(syncMode())}
+function setSyncMode(mode){localStorage.setItem("kt_sync_mode",mode);if(["migrated","joined"].includes(mode))localStorage.setItem("kt_migration_complete","yes");else localStorage.removeItem("kt_migration_complete")}
+
 function syncPayload(){
   refreshAutomaticStatuses();
   return {schemaVersion:"2.0",sheetId:LIVE_SHEET_ID,deviceId:deviceId(),agent:getAgentName(),updatedAt:new Date().toISOString(),customers,accounts,payments,expenses,reminderHistory:Object.entries(bulkReminderLog||{}).map(([key,sentAt])=>({id:key,key,sentAt}))};
 }
 function hashData(data){try{return JSON.stringify(data).length+":"+(data.updatedAt||"")}catch{return String(Date.now())}}
 function updateSyncUI(message){
-  const url=getSyncUrl(), badge=document.getElementById("syncStatusBadge"), text=document.getElementById("syncStatusText");
+  const url=getSyncUrl(), mode=syncMode();
+  const badge=document.getElementById("syncStatusBadge"), text=document.getElementById("syncStatusText");
   const input=document.getElementById("syncUrlInput"), agent=document.getElementById("agentNameInput");
   if(input&&!input.value)input.value=url;if(agent&&!agent.value)agent.value=getAgentName();
   if(!badge||!text)return;
+  const labels={migrated:"Migrated",joined:"Joined",local:url?"Not connected":"Local"};
+  badge.textContent=labels[mode]||"Local";
+  badge.className="badge "+(sharedReady()?"active":"due-soon");
   if(message){text.textContent=message;return}
-  const migrated=localStorage.getItem("kt_migration_complete")==="yes";
-  badge.textContent=url?(migrated?"Connected":"Not migrated"):"Local";badge.className="badge "+(url&&migrated?"active":"due-soon");
-  text.textContent=url?(migrated?"Shared sync enabled — automatic refresh every 20 seconds":"Ready to migrate this device — tap Connect & Migrate"):"Local mode — paste the Apps Script Web App URL";
+  if(mode==="migrated")text.textContent="Original device connected — changes sync automatically every 20 seconds";
+  else if(mode==="joined")text.textContent="Agent device joined — shared records refresh automatically every 20 seconds";
+  else text.textContent=url?"Choose Migrate This Device or Join Shared Database":"Local mode — paste the Apps Script Web App URL to begin";
 }
 async function apiRequest(action,payload={}){
   const url=getSyncUrl();if(!url)throw new Error("Sync URL is not configured");
@@ -604,12 +614,36 @@ async function connectSharedSync(){
   catch(e){console.error("Shared sync connection failed",e);updateSyncUI("Connection failed: "+e.message);toast("Could not connect: "+e.message)}
 }
 async function migrateExistingData(){
-  if(localStorage.getItem("kt_migration_complete")==="yes"){await pullSharedData(true);return}
+  if(sharedReady()){await pullSharedData(true);return}
   const migrationBackup={app:"King Tech Subscription Manager",version:"2.1",exportedAt:new Date().toISOString(),deviceId:deviceId(),agent:getAgentName(),data:syncPayload()};
   localStorage.setItem("kt_pre_migration_backup",JSON.stringify(migrationBackup));
   const result=await apiRequest("migrate",{data:migrationBackup.data});
   localStorage.setItem("kt_migration_complete","yes");localStorage.setItem("kt_last_migration",new Date().toISOString());
   await pullSharedData(false);return result;
+}
+async function joinSharedDatabase(){
+  const input=document.getElementById("syncUrlInput");const url=(input?.value||"").trim();
+  if(!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/.test(url)){toast("Paste the full Apps Script URL ending in /exec");return}
+  localStorage.setItem("kt_sync_url",url);
+  updateSyncUI("Checking the shared database — this device will not upload anything…");
+  try{
+    await apiJsonp("ping",{sheetId:LIVE_SHEET_ID});
+    const result=await apiJsonp("getSnapshot",{sheetId:LIVE_SHEET_ID});
+    const d=result.data||{};
+    const remoteCounts={customers:Array.isArray(d.customers)?d.customers.length:0,accounts:Array.isArray(d.accounts)?d.accounts.length:0,payments:Array.isArray(d.payments)?d.payments.length:0,expenses:Array.isArray(d.expenses)?d.expenses.length:0};
+    if(remoteCounts.customers===0)throw new Error("The shared customer list is empty");
+    const local=localCounts();
+    if((local.customers||local.accounts||local.payments||local.expenses)&&!confirm(`This device has ${local.customers} customers and ${local.accounts} accounts. Replace its local copy with the shared database containing ${remoteCounts.customers} customers and ${remoteCounts.accounts} accounts? A checkpoint will be saved first.`)){
+      updateSyncUI("Join cancelled — local data was not changed");return;
+    }
+    makeCheckpoint("Before joining shared database");
+    localStorage.setItem("kt_pre_join_backup",JSON.stringify({app:"King Tech Subscription Manager",version:"2.5-join",exportedAt:new Date().toISOString(),data:syncPayload()}));
+    customers=d.customers||[];accounts=d.accounts||[];payments=d.payments||[];expenses=d.expenses||[];
+    if(d.reminderLog&&typeof d.reminderLog==="object")bulkReminderLog=d.reminderLog;
+    refreshAutomaticStatuses();saveLocalOnly();render();
+    setSyncMode("joined");localStorage.setItem("kt_last_join",new Date().toISOString());
+    updateSyncUI(`Joined successfully — ${remoteCounts.customers} customers loaded`);toast("Shared database joined");
+  }catch(e){console.error("Join failed",e);setSyncMode("local");updateSyncUI("Join stopped safely: "+e.message);toast("Could not join — local copy kept")}
 }
 async function pushSharedData(){
   if(syncBusy||!getSyncUrl())return;syncBusy=true;
@@ -646,10 +680,10 @@ async function importBackup(){
     if(d.reminderLog)bulkReminderLog=d.reminderLog;refreshAutomaticStatuses();save();toast("Backup imported")
   }catch(e){toast("Backup file could not be imported")}
 }
-window.addEventListener("online",()=>{updateSyncUI("Internet restored");if(localStorage.getItem("kt_migration_complete")==="yes")pushSharedData()});
+window.addEventListener("online",()=>{updateSyncUI("Internet restored");if(sharedReady())pushSharedData()});
 window.addEventListener("offline",()=>updateSyncUI("Offline — changes are saved on this device"));
-setInterval(()=>{if(getSyncUrl()&&navigator.onLine&&localStorage.getItem("kt_migration_complete")==="yes")pullSharedData(false)},SYNC_INTERVAL);
-setTimeout(()=>{updateSyncUI();if(getSyncUrl()&&navigator.onLine&&localStorage.getItem("kt_migration_complete")==="yes")pullSharedData(false)},800);
+setInterval(()=>{if(getSyncUrl()&&navigator.onLine&&sharedReady())pullSharedData(false)},SYNC_INTERVAL);
+setTimeout(()=>{updateSyncUI();if(getSyncUrl()&&navigator.onLine&&sharedReady())pullSharedData(false)},800);
 
 function todayKey(){
   const d=new Date();
