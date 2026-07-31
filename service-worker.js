@@ -1,4 +1,4 @@
-const CACHE_NAME = 'king-tech-manager-v3-firebase';
+const CACHE_NAME = 'king-tech-manager-v3.3-financial-periods';
 const ASSETS = [
   './',
   './index.html',
