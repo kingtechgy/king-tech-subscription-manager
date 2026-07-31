@@ -1,243 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>King Tech Subscription Manager</title>
-<meta name="theme-color" content="#0b1d3a">
-<style>
-:root{--navy:#0b1d3a;--blue:#163a68;--red:#e53935;--bg:#f5f7fb;--card:#fff;--text:#152033;--muted:#718096;--line:#e7ebf2;--green:#159957;--orange:#ee8b2d;--shadow:0 14px 35px rgba(13,30,60,.09)}
-*{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text)}
-button,input,select{font:inherit} button{cursor:pointer}
-.app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
-.sidebar{background:linear-gradient(180deg,#08172e,#102a4d);color:#fff;padding:24px 18px;position:sticky;top:0;height:100vh}
-.brand{display:flex;align-items:center;gap:12px;margin-bottom:28px}.logo{width:45px;height:45px;border-radius:14px;background:var(--red);display:grid;place-items:center;font-weight:900;font-size:22px;box-shadow:0 10px 25px rgba(229,57,53,.3)}
-.brand h1{font-size:17px;margin:0}.brand small{display:block;color:#aebbd0;margin-top:3px}
-.nav{display:grid;gap:7px}.nav button{border:0;background:transparent;color:#c9d4e5;text-align:left;padding:13px 14px;border-radius:12px;font-weight:700}.nav button:hover,.nav button.active{background:#fff;color:var(--navy)}
-.sidebar-footer{position:absolute;bottom:22px;left:18px;right:18px;padding:14px;border-radius:14px;background:rgba(255,255,255,.08);font-size:12px;color:#cbd5e1}
-.main{min-width:0}.topbar{height:76px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:20}
-.topbar h2{margin:0;font-size:22px}.top-actions{display:flex;align-items:center;gap:12px}.avatar{width:40px;height:40px;border:0;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:800;cursor:pointer}.avatar:active{transform:scale(.96)}
-.content{padding:26px;max-width:1500px;margin:auto}
-.hero{background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;border-radius:24px;padding:28px;display:flex;justify-content:space-between;align-items:center;box-shadow:var(--shadow);margin-bottom:22px}
-.hero h3{font-size:28px;margin:0 0 8px}.hero p{margin:0;color:#dbe7f6}.primary{border:0;background:var(--red);color:#fff;padding:12px 18px;border-radius:12px;font-weight:800}.secondary{border:1px solid var(--line);background:#fff;color:var(--text);padding:11px 16px;border-radius:12px;font-weight:750}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}.stat{background:#fff;border:1px solid var(--line);border-radius:18px;padding:19px;box-shadow:0 8px 22px rgba(13,30,60,.05)}.stat span{color:var(--muted);font-size:13px;font-weight:700}.stat strong{display:block;font-size:27px;margin-top:8px}.stat small{display:block;margin-top:5px;color:var(--muted)}
-.grid2{display:grid;grid-template-columns:1.25fr .75fr;gap:18px}.panel{background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px;box-shadow:0 8px 22px rgba(13,30,60,.05)}.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.panel h3{margin:0;font-size:17px}
-.filters{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px}.filters input,.filters select{border:1px solid var(--line);background:#fff;padding:11px 12px;border-radius:12px;outline:none}.filters input{min-width:240px;flex:1}
-.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:13px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}.table th{font-size:12px;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}.table td{font-size:14px}.name{font-weight:800}.muted{color:var(--muted);font-size:12px}
-.badge{display:inline-flex;padding:6px 9px;border-radius:999px;font-size:11px;font-weight:800}.active{background:#e9f8ef;color:#137a41}.due-soon{background:#fff4df;color:#a76409}.due-today{background:#ffe8db;color:#b5521e}.overdue,.expired{background:#ffe5e5;color:#b32828}.did-not-renew{background:#eceff4;color:#566274}.available{background:#e8f3ff;color:#1c5f9b}.full{background:#f4e8ff;color:#763ab4}
-.icon-btn{border:0;background:#eef2f7;padding:8px 10px;border-radius:10px;font-weight:800}
-.list{display:grid;gap:10px}.notice{display:flex;justify-content:space-between;gap:12px;padding:14px;border:1px solid var(--line);border-radius:14px}.notice strong{display:block}.notice small{color:var(--muted)}
-.page{display:none}.page.active{display:block}
-.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.account-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 8px 20px rgba(13,30,60,.05)}.account-top{display:flex;justify-content:space-between;gap:8px}.progress{height:8px;background:#edf1f6;border-radius:99px;overflow:hidden;margin:15px 0}.progress div{height:100%;background:var(--red)}.kv{display:grid;grid-template-columns:1fr 1fr;gap:12px}.kv div{padding:10px;background:#f8fafc;border-radius:12px}.kv small{display:block;color:var(--muted);margin-bottom:4px}
-.modal{position:fixed;inset:0;background:rgba(4,14,30,.55);display:none;align-items:center;justify-content:center;padding:18px;z-index:100}.modal.open{display:flex}.modal-card{width:min(720px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:22px;padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.3)}.modal-head{display:flex;justify-content:space-between;align-items:center}.modal-head h3{margin:0}.close{border:0;background:#edf1f6;width:36px;height:36px;border-radius:10px;font-size:18px}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}.field label{display:block;font-size:12px;font-weight:800;color:#596579;margin-bottom:6px}.field input,.field select{width:100%;padding:12px;border:1px solid var(--line);border-radius:11px}.fullrow{grid-column:1/-1}.form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
-.bottom-nav{display:none}
-.toast{position:fixed;right:24px;bottom:24px;background:#14243d;color:#fff;padding:13px 16px;border-radius:12px;display:none;z-index:200}
-@media(max-width:1050px){.stats{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:760px){.app{display:block}.sidebar{display:none}.topbar{height:66px;padding:0 16px}.topbar h2{font-size:18px}.content{padding:16px 14px 92px}.hero{padding:22px;align-items:flex-start;gap:18px}.hero h3{font-size:23px}.stats{grid-template-columns:1fr 1fr;gap:10px}.stat{padding:15px}.stat strong{font-size:22px}.cards{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.bottom-nav{display:flex;position:fixed;left:8px;right:8px;bottom:8px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:8px;z-index:50;box-shadow:0 16px 45px rgba(13,30,60,.18);justify-content:space-around}.bottom-nav button{border:0;background:transparent;padding:8px 4px;font-size:10px;font-weight:800;color:#67738a}.bottom-nav button.active{color:var(--red)}.bottom-nav span{display:block;font-size:18px;margin-bottom:3px}.filters input{min-width:100%}.hero .primary{white-space:nowrap}}
-</style>
 
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-
-</head>
-<body>
-<button id="installAppButton" onclick="installKingTechApp()" style="display:none;position:fixed;right:16px;bottom:16px;z-index:9999;background:#0b1d3a;color:white;border:0;border-radius:14px;padding:13px 18px;font-weight:800;box-shadow:0 8px 24px rgba(0,0,0,.22)">Install App</button>
-<div class="app">
-<aside class="sidebar">
- <div class="brand"><div class="logo">K</div><div><h1>King Tech</h1><small>Subscription Manager</small></div></div>
- <nav class="nav">
-  <button class="active" data-page="dashboard">▦ Dashboard</button>
-  <button data-page="customers">👥 Customers</button>
-  <button data-page="accounts">▣ Subscription Accounts</button>
-  <button data-page="reminders">◷ Reminders</button>
-  <button data-page="bulk">📣 Bulk Messages</button>
-  <button data-page="payments">💳 Customer Payments</button>
-  <button data-page="expenses">↘ Expenses</button>
-  <button data-page="reports">▥ Reports</button>
-  <button data-page="settings">⚙ Settings</button>
- </nav>
- <div class="sidebar-footer">238 video subscription records imported</div>
-</aside>
-<main class="main">
- <header class="topbar"><h2 id="pageTitle">Dashboard</h2><div class="top-actions"><button class="secondary" id="quickAdd">+ Add</button><button class="avatar" id="settingsButton" type="button" aria-label="Open Settings" title="Settings">KT</button></div></header>
- <div class="content">
-  <section id="dashboard" class="page active">
-   <div class="hero"><div><h3>Good morning, King Tech</h3><p>Track renewals, account availability, payments and profit from one place.</p></div><button class="primary" data-open="customerModal">+ Add Customer</button></div>
-   <div class="stats" id="stats"></div>
-   <div class="grid2">
-    <div class="panel"><div class="panel-head"><h3>Needs Attention</h3><button class="secondary" data-page="reminders">View all</button></div><div class="table-wrap"><table class="table"><thead><tr><th>Customer</th><th>Service</th><th>Due</th><th>Status</th><th></th></tr></thead><tbody id="attentionRows"></tbody></table></div></div>
-    <div class="panel"><div class="panel-head"><h3>Account Availability</h3><button class="secondary" data-page="accounts">Manage</button></div><div class="list" id="availabilityList"></div></div>
-   </div>
-  </section>
-  <section id="customers" class="page">
-   <div class="panel"><div class="panel-head"><div><h3>Customers</h3><div class="muted">Edit names, services, due dates and assigned accounts.</div></div><button class="primary" data-open="customerModal">+ Add Customer</button></div>
-   <div class="filters"><input id="customerSearch" placeholder="Search customer, phone or service"><select id="statusFilter"><option value="">All statuses</option><option>Active</option><option>Due Soon</option><option>Due Today</option><option>Overdue</option><option>Expired</option><option>Did Not Renew</option><option>Available</option></select><select id="serviceFilter"><option value="">All services</option></select></div>
-   <div class="table-wrap"><table class="table"><thead><tr><th>Bill No.</th><th>Customer</th><th>Service</th><th>Assigned Account</th><th>Amount</th><th>Payment Due</th><th>Internal Expiry</th><th>Status</th><th></th></tr></thead><tbody id="customerRows"></tbody></table></div></div>
-  </section>
-  <section id="accounts" class="page">
-   <div class="panel-head"><div><h3>Subscription Accounts</h3><div class="muted">Provider payment date is tracked separately from customer payment dates.</div></div><button class="primary" data-open="accountModal">+ Add Account</button></div><div class="cards" id="accountCards"></div>
-  </section>
-  <section id="reminders" class="page">
-   <div class="panel"><div class="panel-head"><div><h3>WhatsApp Reminder Queue</h3><div class="muted">Renewal reminders appear three days before expiry. Overdue customers receive the overdue message.</div></div></div>
-   <div class="filters"><select id="reminderFilter"><option value="">All reminders</option><option>Due Soon</option><option>Due Today</option><option>Overdue</option><option>Expired</option></select></div>
-   <div class="table-wrap"><table class="table"><thead><tr><th>Customer</th><th>Service</th><th>Due Date</th><th>Amount</th><th>Status</th><th>WhatsApp</th></tr></thead><tbody id="reminderRows"></tbody></table></div></div>
-  </section>
-  <section id="payments" class="page">
-   <div class="panel"><div class="panel-head"><div><h3>Customer Payments</h3><div class="muted">Payments are only updated manually by King Tech staff.</div></div><button class="primary" data-open="paymentModal">+ Record Payment</button></div><div id="paymentSummary" class="stats"></div><div class="table-wrap"><table class="table"><thead><tr><th>Customer</th><th>Service</th><th>Amount Due</th><th>Due Date</th><th>Status</th><th></th></tr></thead><tbody id="paymentRows"></tbody></table></div></div>
-  </section>
-  <section id="expenses" class="page">
-   <div class="panel"><div class="panel-head"><div><h3>Expenses</h3><div class="muted">Record provider renewals and other subscription expenses.</div></div><button class="primary" data-open="expenseModal">+ Add Expense</button></div><div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th></tr></thead><tbody id="expenseRows"></tbody></table></div></div>
-  </section>
-  <section id="reports" class="page"><div class="stats" id="reportStats"></div><div class="grid2"><div class="panel"><h3>Profit by Service</h3><div id="profitByService" class="list" style="margin-top:15px"></div></div><div class="panel"><h3>Business Snapshot</h3><div id="snapshot" class="list" style="margin-top:15px"></div></div></div></section>
-  <section id="settings" class="page">
-  <div class="panel">
-    <div class="panel-head"><div><h3>Shared Sync & Backups</h3><div class="muted">Protect this device's existing records and connect every approved agent to the same live list.</div></div></div>
-    <div class="list" style="margin-top:16px">
-      <div class="notice"><div><strong>Live Google Spreadsheet</strong><small>King Tech Subscription Manager LIVE Database</small></div><button class="secondary" onclick="window.open('https://docs.google.com/spreadsheets/d/1-SFws64HGIkEvK3vZCmNekilftCtpy4WdE6AKSDdKWU/edit','_blank')">Open Sheet</button></div>
-      <div class="notice"><div><strong>Sync status</strong><small id="syncStatusText">Local mode — setup URL required</small></div><span class="badge" id="syncStatusBadge">Local</span></div>
-      <div class="notice"><div><strong>Agent name</strong><small>Changes and payments will be labeled with this name.</small></div><input id="agentNameInput" placeholder="Example: Main Office" style="max-width:220px"><button class="secondary" onclick="saveAgentName()">Save</button></div>
-      <div class="notice"><div><strong>Apps Script Web App URL</strong><small>Paste the deployment URL once the included Code.gs is deployed.</small></div><input id="syncUrlInput" placeholder="https://script.google.com/macros/s/.../exec" style="min-width:280px;max-width:520px"><button class="primary" onclick="connectSharedSync()">Connect & Migrate</button></div>
-      <div class="notice"><div><strong>Refresh shared records</strong><small>Download the newest list now. Automatic refresh runs every 20 seconds.</small></div><button class="secondary" onclick="pullSharedData(true)">Sync Now</button></div>
-      <div class="notice"><div><strong>Export Backup</strong><small>Download customers, accounts, payments, expenses and reminder history.</small></div><button class="secondary" onclick="exportBackup()">Export JSON</button></div>
-      <div class="notice"><div><strong>Import Backup</strong><small>Restore a King Tech backup file without clearing it first.</small></div><input type="file" id="backupFile" accept="application/json" style="max-width:250px"><button class="secondary" onclick="importBackup()">Import</button></div>
-      <div class="notice"><div><strong>Clear This Device Only</strong><small>This does not delete the shared spreadsheet. Export a backup first.</small></div><button class="danger" id="resetData">Reset Device</button></div>
-    </div>
-  </div>
-</section>
- </div>
-
-<section class="page" id="bulk">
-  <div class="page-head">
-    <div>
-      <h1>Bulk Messages</h1>
-      <p>Prepare and send personalised WhatsApp reminders one customer at a time.</p>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-head">
-      <div>
-        <h2>Build Reminder Queue</h2>
-        <p class="muted">Select customers by status or service, preview the message, then send through WhatsApp Business.</p>
-      </div>
-    </div>
-
-    <div class="form-grid">
-      <div class="field">
-        <label>Payment Status</label>
-        <select id="bulkStatusFilter">
-          <option value="">All payable customers</option>
-          <option>Due Soon</option>
-          <option>Due Today</option>
-          <option>Overdue</option>
-          <option>Expired</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Service</label>
-        <select id="bulkServiceFilter">
-          <option value="">All services</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Reminder Type</label>
-        <select id="bulkMessageType">
-          <option value="automatic">Automatic by status</option>
-          <option value="friendly">Friendly reminder</option>
-          <option value="today">Due today notice</option>
-          <option value="overdue">Overdue notice</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Duplicate Protection</label>
-        <select id="bulkDuplicateMode">
-          <option value="skip">Skip customers messaged today</option>
-          <option value="allow">Allow repeat message today</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="toolbar" style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
-      <button class="primary" onclick="selectBulkFiltered()">Select Filtered</button>
-      <button class="secondary" onclick="clearBulkSelection()">Clear Selection</button>
-      <button class="secondary" onclick="previewBulkMessage()">Preview Message</button>
-      <button class="primary" onclick="startBulkQueue()">Start Sending</button>
-    </div>
-
-    <div class="stats-grid" style="margin-top:18px">
-      <div class="stat"><span>Eligible</span><strong id="bulkEligibleCount">0</strong></div>
-      <div class="stat"><span>Selected</span><strong id="bulkSelectedCount">0</strong></div>
-      <div class="stat"><span>Sent Today</span><strong id="bulkSentTodayCount">0</strong></div>
-      <div class="stat"><span>Without Number</span><strong id="bulkMissingPhoneCount">0</strong></div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-head">
-      <div>
-        <h2>Customer Selection</h2>
-        <p class="muted">Only customers with a WhatsApp number can be sent from the queue.</p>
-      </div>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th><input type="checkbox" id="bulkSelectAll" onchange="toggleBulkSelectAll(this.checked)"></th>
-            <th>Customer</th>
-            <th>Service</th>
-            <th>Status</th>
-            <th>Amount</th>
-            <th>Last Reminder</th>
-          </tr>
-        </thead>
-        <tbody id="bulkCustomerRows"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="card" id="bulkQueueCard" style="display:none">
-    <div class="card-head">
-      <div>
-        <h2>Sending Queue</h2>
-        <p class="muted" id="bulkQueueProgress">Queue not started.</p>
-      </div>
-    </div>
-    <div class="toolbar" style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="primary" id="bulkSendCurrentButton" onclick="sendCurrentBulkCustomer()">Open Current Message</button>
-      <button class="secondary" onclick="markBulkCurrentSent()">Mark Sent & Next</button>
-      <button class="secondary" onclick="skipBulkCurrent()">Skip</button>
-      <button class="danger" onclick="cancelBulkQueue()">Cancel Queue</button>
-    </div>
-    <div id="bulkCurrentCustomer" style="margin-top:16px"></div>
-  </div>
-</section>
-
-</main>
-</div>
-<nav class="bottom-nav"><button class="active" data-page="dashboard"><span>⌂</span>Home</button><button data-page="customers"><span>👥</span>Customers</button><button data-page="accounts"><span>▣</span>Accounts</button><button data-page="reminders"><span>◷</span>Reminders</button><button data-page="bulk"><span>📣</span>Bulk</button><button data-page="expenses"><span>↘</span>Expenses</button><button data-page="reports"><span>▥</span>Reports</button></nav>
-
-<div class="modal" id="customerModal"><div class="modal-card"><div class="modal-head"><h3 id="customerModalTitle">Add Customer</h3><button class="close" data-close>×</button></div><form id="customerForm"><input type="hidden" name="editId" id="customerEditId"><div class="form-grid">
-<div class="field"><label>Customer Name</label><input name="name" required></div><div class="field"><label>WhatsApp Number <span style="font-weight:500;color:#64748b">(Optional)</span></label><input name="phone" placeholder="592..."></div><div class="field"><label>Email</label><input name="email" type="email"></div><div class="field"><label>Existing Account Number</label><input name="referenceNumber"></div>
-<div class="field"><label>Bill Number</label><input name="billNumber" id="customerBillNumber" maxlength="4" inputmode="numeric" required></div>
-<div class="field"><label>Subscription Type</label><select name="service" id="customerService" required></select></div>
-<div class="field"><label>Package</label><select name="plan" id="customerPlan" required></select></div>
-<div class="field"><label>Monthly Amount</label><input name="amount" id="customerAmount" type="number" required></div>
-<div class="field"><label>Sign-up Fee</label><input name="signupFee" id="customerSignupFee" type="number" value="0"></div><div class="field"><label>Assigned Subscription Account</label><select name="account" id="customerAccount"><option value="">Not assigned</option></select></div>
-
-<div class="field"><label>Status</label><select name="status"><option>Active</option><option>Due Soon</option><option>Overdue</option><option>Expired</option><option>Did Not Renew</option><option>Available</option></select></div><div class="field"><label>Payment Due Date</label><input name="due" type="date" required></div><div class="field"><label>King Tech Account Expiry Date <span style="font-weight:500;color:#64748b">(Optional)</span></label><input name="expiry" type="date"></div>
-</div><div class="form-actions"><button type="button" class="secondary" data-close>Cancel</button><button class="primary" id="customerSaveButton">Save Customer</button></div></form></div></div>
-<div class="modal" id="accountModal"><div class="modal-card"><div class="modal-head"><h3 id="accountModalTitle">Add Subscription Account</h3><button class="close" data-close>×</button></div><form id="accountForm"><input type="hidden" name="editId" id="accountEditId"><div class="form-grid">
-<div class="field"><label>Service</label><input name="service" required></div><div class="field"><label>Account Name</label><input name="name" required></div><div class="field"><label>Login Email / Username</label><input name="login" required></div><div class="field"><label>Password</label><input name="password" required></div><div class="field"><label>Total Slots</label><input name="slots" type="number" required></div><div class="field"><label>Manually Reserved / Used Slots</label><input name="used" type="number" value="0" min="0" required><small class="muted">Assigned customers are also counted automatically. The higher count is used.</small></div><div class="field"><label>King Tech Payment Date</label><input name="providerDue" type="date" required></div><div class="field"><label>Main Account Expiry</label><input name="providerExpiry" type="date"></div><div class="field"><label>Provider Cost</label><input name="cost" type="number" required></div><div class="field"><label>Account Status</label><select name="status"><option>Available</option><option>Full</option><option>Expired</option><option>Inactive</option></select><small class="muted">Available and Full follow the slot count. Expired and Inactive remain locked.</small></div>
-</div><div class="form-actions"><button type="button" class="secondary" data-close>Cancel</button><button class="primary" id="accountSaveButton">Save Account</button></div></form></div></div>
-<div class="modal" id="paymentModal"><div class="modal-card"><div class="modal-head"><h3>Record Customer Payment</h3><button class="close" data-close>×</button></div><form id="paymentForm"><div class="form-grid"><div class="field fullrow"><label>Customer</label><select name="customerId" id="paymentCustomer"></select></div><div class="field"><label>Amount Paid</label><input name="amount" type="number" required></div><div class="field"><label>New Payment Due Date</label><input name="newDue" type="date" required></div><div class="field"><label>New King Tech Account Expiry Date</label><input name="newExpiry" type="date" required></div></div><div class="form-actions"><button type="button" class="secondary" data-close>Cancel</button><button class="primary">Mark as Paid</button></div></form></div></div>
-<div class="modal" id="expenseModal"><div class="modal-card"><div class="modal-head"><h3>Add Business Expense</h3><button class="close" data-close>×</button></div><form id="expenseForm"><div class="form-grid"><div class="field"><label>Date</label><input name="date" type="date" required></div><div class="field"><label>Category</label><select name="category"><option>Gift Card Purchase</option><option>Provider Renewal</option><option>Software</option><option>Marketing</option><option>Other</option></select></div><div class="field fullrow"><label>Note / Description</label><input name="description" required placeholder="Example: Purchased $50 Apple gift card"></div><div class="field"><label>Amount</label><input name="amount" type="number" required></div></div><div class="form-actions"><button type="button" class="secondary" data-close>Cancel</button><button class="primary">Save Expense</button></div></form></div></div>
-<div class="toast" id="toast"></div>
-<script>
 
 const APP_DATA_VERSION = "shared-sync-v2";
 // Never clear existing records during an update. Keep a one-time safety copy first.
@@ -365,7 +126,7 @@ function saveLocalOnly(){
 const save=()=>{
   refreshAutomaticStatuses(); saveLocalOnly(); render();
   clearTimeout(syncSaveTimer);
-  if(localStorage.getItem("kt_migration_complete")==="yes") syncSaveTimer=setTimeout(()=>pushSharedData().catch(()=>{}),700);
+  syncSaveTimer=setTimeout(()=>pushSharedData().catch(()=>{}),700);
 };
 function generateBillNumber(){
  const used=new Set(customers.map(c=>String(c.billNumber||"")));
@@ -390,7 +151,6 @@ function toast(msg){let t=document.getElementById("toast");t.textContent=msg;t.s
 function navigate(id){document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll("[data-page]").forEach(x=>x.classList.toggle("active",x.dataset.page===id));document.getElementById("pageTitle").textContent={dashboard:"Dashboard",customers:"Customers",accounts:"Subscription Accounts",reminders:"Reminders",bulk:"Bulk Messages",payments:"Customer Payments",expenses:"Expenses",reports:"Reports",settings:"Settings"}[id];window.scrollTo(0,0)}
 document.addEventListener("click",e=>{const p=e.target.closest("[data-page]");if(p)navigate(p.dataset.page);const o=e.target.closest("[data-open]");if(o){document.getElementById(o.dataset.open).classList.add("open");if(o.dataset.open==="customerModal")document.getElementById("customerBillNumber").value=generateBillNumber();}if(e.target.matches("[data-close]"))e.target.closest(".modal").classList.remove("open")});
 document.getElementById("quickAdd").onclick=()=>{document.getElementById("customerBillNumber").value=generateBillNumber();document.getElementById("customerModal").classList.add("open")};
-document.getElementById("settingsButton").onclick=()=>navigate("settings");
 
 function openSection(page, filter=""){
  navigate(page);
@@ -586,7 +346,7 @@ function updateSyncUI(message){
   if(!badge||!text)return;
   if(message){text.textContent=message;return}
   badge.textContent=url?"Connected":"Local";badge.className="badge "+(url?"active":"due-soon");
-  text.textContent=url?(localStorage.getItem("kt_migration_complete")==="yes"?"Shared sync enabled — automatic refresh every 20 seconds":"Ready to migrate this device — open Settings and tap Connect & Migrate"):"Local mode — deploy Code.gs, then paste its Web App URL";
+  text.textContent=url?"Shared sync enabled — automatic refresh every 20 seconds":"Local mode — deploy Code.gs, then paste its Web App URL";
 }
 async function apiRequest(action,payload={}){
   const url=getSyncUrl();if(!url)throw new Error("Sync URL is not configured");
@@ -641,10 +401,10 @@ async function importBackup(){
     if(d.reminderLog)bulkReminderLog=d.reminderLog;refreshAutomaticStatuses();save();toast("Backup imported")
   }catch(e){toast("Backup file could not be imported")}
 }
-window.addEventListener("online",()=>{updateSyncUI("Internet restored");if(localStorage.getItem("kt_migration_complete")==="yes")pushSharedData()});
+window.addEventListener("online",()=>{updateSyncUI("Internet restored — syncing…");pushSharedData()});
 window.addEventListener("offline",()=>updateSyncUI("Offline — changes are saved on this device"));
-setInterval(()=>{if(getSyncUrl()&&navigator.onLine&&localStorage.getItem("kt_migration_complete")==="yes")pullSharedData(false)},SYNC_INTERVAL);
-setTimeout(()=>{updateSyncUI();if(getSyncUrl()&&navigator.onLine&&localStorage.getItem("kt_migration_complete")==="yes")pullSharedData(false)},800);
+setInterval(()=>{if(getSyncUrl()&&navigator.onLine)pullSharedData(false)},SYNC_INTERVAL);
+setTimeout(()=>{updateSyncUI();if(getSyncUrl()&&navigator.onLine)pullSharedData(false)},800);
 
 function todayKey(){
   const d=new Date();
@@ -871,9 +631,8 @@ function openWhatsAppMessage(phone,message){
   window.open(universalLink,"_blank","noopener,noreferrer");
 }
 
-</script>
 
-<script>
+
 let deferredInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
@@ -898,6 +657,3 @@ async function installKingTechApp() {
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js'));
 }
-</script>
-
-</body></html>
