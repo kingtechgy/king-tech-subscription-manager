@@ -1,4 +1,4 @@
-const CACHE_NAME = 'king-tech-manager-v2.1-live-sync-stable';
+const CACHE_NAME = 'king-tech-manager-v2.2-live-sync-tdz-fix';
 const ASSETS = [
   './',
   './index.html',

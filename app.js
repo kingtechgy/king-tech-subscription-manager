@@ -1,6 +1,11 @@
+// Live sync configuration is declared first to prevent startup initialization errors.
+var LIVE_SHEET_ID = "1-SFws64HGIkEvK3vZCmNekilftCtpy4WdE6AKSDdKWU";
+var DEFAULT_SYNC_URL = "https://script.google.com/macros/s/AKfycbxZk5m3wTJsWv5ER3JdJIf3AoZqjirVs_T1GSBrZxM8mlIgRs_VxD5Ya7wFgbza4gjJ/exec";
+var SYNC_INTERVAL = 20000;
 
 
-const APP_DATA_VERSION = "shared-sync-v2";
+
+const APP_DATA_VERSION = "shared-sync-v2.2";
 // Never clear existing records during an update. Keep a one-time safety copy first.
 if(!localStorage.getItem("kt_pre_v2_backup")){
   const safety={
@@ -115,9 +120,6 @@ function refreshAutomaticStatuses(){
   accounts.forEach(a=>a.status=calculatedAccountStatus(a));
 }
 
-const LIVE_SHEET_ID="1-SFws64HGIkEvK3vZCmNekilftCtpy4WdE6AKSDdKWU";
-const DEFAULT_SYNC_URL="https://script.google.com/macros/s/AKfycbxZk5m3wTJsWv5ER3JdJIf3AoZqjirVs_T1GSBrZxM8mlIgRs_VxD5Ya7wFgbza4gjJ/exec";
-const SYNC_INTERVAL=20000;
 let syncBusy=false, lastSharedHash="";
 
 let syncSaveTimer=null;
