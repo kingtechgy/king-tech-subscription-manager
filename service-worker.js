@@ -1,4 +1,4 @@
-const CACHE_NAME = 'king-tech-manager-v2.3-cors-sync-fix';
+const CACHE_NAME = 'king-tech-manager-v24-safe-migration';
 const ASSETS = [
   './',
   './index.html',

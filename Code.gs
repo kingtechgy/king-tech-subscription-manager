@@ -11,6 +11,7 @@ function doGet(e){
     let out;
     if(p.action==="ping"||!p.action) out={ok:true,service:"King Tech Subscription Manager API",version:"2.3",spreadsheetId:SPREADSHEET_ID};
     else if(p.action==="getSnapshot") out={ok:true,data:readSnapshot_(),hash:String(Date.now())};
+    else if(p.action==="getMigrationStatus") out=migrationStatus_(String(p.token||""));
     else throw new Error("Unknown action");
     return output_(out,p.callback);
   }catch(err){return output_({ok:false,error:String(err&&err.message||err)},(e&&e.parameter&&e.parameter.callback)||"")}
@@ -21,7 +22,7 @@ function doPost(e){
     if(body.action==="ping") return json_({ok:true,version:"2.3",spreadsheetId:SPREADSHEET_ID});
     if(body.action==="getSnapshot") return json_({ok:true,data:readSnapshot_(),hash:String(Date.now())});
     if(body.action==="saveSnapshot"){writeSnapshot_(body.data||{},false);return json_({ok:true,hash:String(Date.now())})}
-    if(body.action==="migrate"){writeSnapshot_(body.data||{},true);return json_({ok:true,migrated:true,hash:String(Date.now())})}
+    if(body.action==="migrate"){writeSnapshot_(body.data||{},true,String(body.token||""));return json_({ok:true,migrated:true,hash:String(Date.now())})}
     throw new Error("Unknown action");
   }catch(err){return json_({ok:false,error:String(err&&err.message||err)})}
 }
@@ -36,4 +37,19 @@ function parse_(v){if(typeof v!=="string")return v;if(v==="true")return true;if(
 function writeObjects_(sheetName,objects){const sh=ss_().getSheetByName(sheetName);const headers=sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0].filter(String);sh.getRange(2,1,Math.max(1,sh.getMaxRows()-1),sh.getMaxColumns()).clearContent();if(!objects||!objects.length)return;const rows=objects.map(o=>headers.map(h=>{const v=o[h];return typeof v==="object"&&v!==null?JSON.stringify(v):(v??"")}));sh.getRange(2,1,rows.length,headers.length).setValues(rows)}
 function readSnapshot_(){const reminders=rowsToObjects_(SHEETS.reminders);const reminderLog={};reminders.forEach(r=>{if(r.key||r.id)reminderLog[r.key||r.id]=r.sentAt||""});return{customers:rowsToObjects_(SHEETS.customers),accounts:rowsToObjects_(SHEETS.accounts),payments:rowsToObjects_(SHEETS.payments),expenses:rowsToObjects_(SHEETS.expenses),reminderLog,updatedAt:new Date().toISOString()}}
 function normalize_(arr,agent){return (arr||[]).map(x=>Object.assign({},x,{updatedAt:new Date().toISOString(),updatedBy:x.updatedBy||agent||"Agent",version:Number(x.version||0)+1,deleted:false}))}
-function writeSnapshot_(data,isMigration){const lock=LockService.getScriptLock();lock.waitLock(30000);try{const agent=data.agent||"Agent";writeObjects_(SHEETS.customers,normalize_(data.customers,agent));writeObjects_(SHEETS.accounts,normalize_(data.accounts,agent));writeObjects_(SHEETS.payments,data.payments||[]);writeObjects_(SHEETS.expenses,data.expenses||[]);writeObjects_(SHEETS.reminders,(data.reminderHistory||[]).map(r=>Object.assign({},r,{agent})));const act=ss_().getSheetByName(SHEETS.activity);act.appendRow([Date.now(),new Date(),agent,data.deviceId||"",isMigration?"MIGRATE":"SYNC","snapshot","all",`${(data.customers||[]).length} customers; ${(data.accounts||[]).length} accounts`,"",""]);if(isMigration)ss_().getSheetByName(SHEETS.migration).appendRow([Date.now(),new Date(),new Date(),data.deviceId||"",agent,(data.customers||[]).length,(data.accounts||[]).length,(data.payments||[]).length,(data.expenses||[]).length,"Completed","Initial local-device migration"]);}finally{lock.releaseLock()}}
+function writeSnapshot_(data,isMigration,token){const lock=LockService.getScriptLock();lock.waitLock(30000);try{const agent=data.agent||"Agent";writeObjects_(SHEETS.customers,normalize_(data.customers,agent));writeObjects_(SHEETS.accounts,normalize_(data.accounts,agent));writeObjects_(SHEETS.payments,data.payments||[]);writeObjects_(SHEETS.expenses,data.expenses||[]);writeObjects_(SHEETS.reminders,(data.reminderHistory||[]).map(r=>Object.assign({},r,{agent})));const act=ss_().getSheetByName(SHEETS.activity);act.appendRow([Date.now(),new Date(),agent,data.deviceId||"",isMigration?"MIGRATE":"SYNC","snapshot","all",`${(data.customers||[]).length} customers; ${(data.accounts||[]).length} accounts`,"",""]);if(isMigration)ss_().getSheetByName(SHEETS.migration).appendRow([Date.now(),new Date(),new Date(),data.deviceId||"",agent,(data.customers||[]).length,(data.accounts||[]).length,(data.payments||[]).length,(data.expenses||[]).length,"Completed","Initial local-device migration",token||""]);}finally{lock.releaseLock()}}
+
+
+function migrationStatus_(token){
+  if(!token)return {ok:false,error:"Migration token is required"};
+  const sh=ss_().getSheetByName(SHEETS.migration);
+  if(!sh||sh.getLastRow()<2)return {ok:true,completed:false};
+  const rows=sh.getRange(2,1,sh.getLastRow()-1,Math.max(12,sh.getLastColumn())).getValues();
+  for(let i=rows.length-1;i>=0;i--){
+    const r=rows[i];
+    if(String(r[11]||"")===token){
+      return {ok:true,completed:String(r[9]||"")==="Completed",counts:{customers:Number(r[5]||0),accounts:Number(r[6]||0),payments:Number(r[7]||0),expenses:Number(r[8]||0)},completedAt:r[2]||r[1]||""};
+    }
+  }
+  return {ok:true,completed:false};
+}
